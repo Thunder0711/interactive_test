@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>深海保护行动 - 视觉统一版</title>
+    <style>
+        body { background: #012d5e; font-family: '幼圆', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: white; overflow: hidden; user-select: none; }
+        #game-screen { width: 700px; height: 500px; background: #0277bd; border: 6px solid #fff; border-radius: 30px; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden; }
+        
+        /* 状态栏 */
+        #status-bar { height: 60px; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: space-around; color: #01579b; font-weight: bold; font-size: 18px; z-index: 10; }
+        #mode-label { font-weight: bold; }
+
+        /* 游戏区域 */
+        #ocean { flex: 1; position: relative; background: radial-gradient(circle, #0288d1 0%, #01579b 100%); display: flex; align-items: center; justify-content: center; }
+        #fish-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; z-index: 5; }
+        #fixation { font-size: 60px; color: white; font-weight: bold; display: none; }
+        #feedback { position: absolute; top: 20px; font-size: 26px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 20; }
+
+        .fish-svg { width: 200px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4)); }
+        
+        /* 遮罩层 (引导页与切换页) */
+        #mask-screen { position: absolute; inset: 0; background: rgba(1, 87, 155, 0.98); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .rule-card { background: white; color: #01579b; padding: 25px; border-radius: 20px; margin: 20px; max-width: 500px; }
+        .key-hint { display: inline-block; padding: 4px 12px; background: #e1f5fe; border: 2px solid #01579b; border-radius: 6px; font-weight: bold; }
+        .btn-main { padding: 14px 45px; background: #ffc107; color: #3e2723; border: none; border-radius: 50px; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 5px 0 #ffa000; margin-top: 10px; }
+        
+        /* 结束页 */
+        #finish-screen { position: absolute; inset: 0; background: #01579b; color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div id="game-screen">
+        <div id="mask-screen">
+            <div id="ui-content">
+                <h1 style="color: #ffeb3b;">🐡 保护河豚挑战</h1>
+                <div class="rule-card">
+                    <p style="font-size: 19px; margin: 10px 0;">探险家，看到目标请快速反应：</p>
+                    <div style="margin: 20px 0; font-size: 20px; line-height: 2;">
+                        看到 <span style="color:#0277bd; font-weight:bold;">蓝色小鱼</span> 按 <span class="key-hint">F 键</span> 钓起 <br>
+                        看到 <span style="color:#d32f2f; font-weight:bold;">红色河豚</span> <span style="color:#d32f2f; font-weight:bold;">不要按键</span>
+                    </div>
+                    <hr>
+                    <p style="color: #666; font-size: 14px;">正式开始前，将进行 3 次练习环节</p>
+                </div>
+                <button class="btn-main" onclick="startGame()">开始练习</button>
+            </div>
+        </div>
+
+        <div id="status-bar">
+            <div id="mode-label" style="color: #ff5252;">[ 练习模式 ]</div>
+            <div>进度: <span id="trial-count">0</span> / 20</div>
+            <div>金币: 💰<span id="gold-count">0</span></div>
+        </div>
+
+        <div id="ocean">
+            <div id="feedback"></div>
+            <div id="fixation">+</div>
+            <div id="fish-container">
+                <svg id="target-svg" class="fish-svg" viewBox="0 0 240 140"></svg>
+            </div>
+        </div>
+
+        <div id="finish-screen">
+            <h2 style="color: #ffeb3b;">测评已完成</h2>
+            <p style="font-size: 18px; margin-bottom: 30px;">正在为您同步数据，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        const FORMAL_TRIALS = 20;
+        const PRACTICE_TRIALS = 3; 
+        const GO_PROB = 0.8;      
+        const PRESENT_TIME = 650;  // 反应窗口
+        
+        let trialIdx = 0;
+        let totalGold = 0;
+        let isWaitingInput = false;
+        let isPractice = true;
+        let currentFishType = ''; 
+        let timer = null;
+
+        let stats = { nogoError: 0, nogoCorrect: 0 };
+
+        const BLUE_FISH_SVG = `
+            <path fill="#0277bd" d="M180 70 L220 30 L220 110 Z" stroke="#fff" stroke-width="2"/>
+            <path fill="#01579b" d="M15,75 Q15,25 100,25 T185,75 T100,125 T15,75" stroke="#fff" stroke-width="3"/>
+            <circle fill="white" cx="55" cy="65" r="11"/><circle fill="black" cx="57" cy="65" r="5" />`;
+        
+        const RED_PUFFER_SVG = `
+            <circle fill="#d32f2f" cx="100" cy="75" r="55" stroke="#fff" stroke-width="3"/>
+            <path fill="#d32f2f" d="M100 15 L105 25 L95 25 Z M160 75 L150 70 L150 80 Z M40 75 L50 70 L50 80 Z M100 135 L105 125 L95 125 Z" stroke="#fff"/>
+            <circle fill="white" cx="75" cy="60" r="12"/><circle fill="black" cx="78" cy="60" r="6" />
+            <path d="M120 90 Q135 100 150 90" stroke="white" fill="none" stroke-width="3"/>`;
+
+        function startGame() {
+            document.getElementById('mask-screen').style.display = 'none';
+            runTrial();
+        }
+
+        function runTrial() {
+            const currentTotal = isPractice ? PRACTICE_TRIALS : FORMAL_TRIALS;
+            
+            if (trialIdx >= currentTotal) {
+                if (isPractice) return transitionToFormal();
+                else return showResult();
+            }
+
+            document.getElementById('trial-count').innerText = (trialIdx + 1);
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('fixation').style.display = 'block';
+            document.getElementById('fish-container').style.display = 'none';
+
+            setTimeout(() => {
+                document.getElementById('fixation').style.display = 'none';
+                showFish();
+            }, 600 + Math.random() * 600);
+        }
+
+        function showFish() {
+            currentFishType = Math.random() < GO_PROB ? 'blue' : 'puffer';
+            document.getElementById('target-svg').innerHTML = currentFishType === 'blue' ? BLUE_FISH_SVG : RED_PUFFER_SVG;
+            document.getElementById('fish-container').style.display = 'block';
+            
+            isWaitingInput = true;
+            timer = setTimeout(() => {
+                if (isWaitingInput) handleResponse(null); 
+            }, PRESENT_TIME);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isWaitingInput) return;
+            if (e.key.toLowerCase() !== 'f') return;
+            
+            clearTimeout(timer);
+            handleResponse('f');
+        });
+
+        function handleResponse(key) {
+            isWaitingInput = false;
+            document.getElementById('fish-container').style.display = 'none';
+
+            let feedbackText = "";
+            let feedbackColor = "white";
+
+            if (currentFishType === 'blue') {
+                if (key === 'f') {
+                    totalGold += 10;
+                    feedbackText = "钓到了！+10金币";
+                } else {
+                    feedbackText = "错过蓝鱼";
+                    feedbackColor = "#ff8a80";
+                }
+            } else { 
+                if (key === 'f') {
+                    if (!isPractice) stats.nogoError++;
+                    totalGold = Math.max(0, totalGold - 30);
+                    feedbackText = "误捕保护鱼！-30金币";
+                    feedbackColor = "#ff5252";
+                } else {
+                    if (!isPractice) stats.nogoCorrect++;
+                    totalGold += 20;
+                    feedbackText = "成功避开！";
+                    feedbackColor = "#4caf50";
+                }
+            }
+
+            document.getElementById('gold-count').innerText = totalGold;
+            document.getElementById('feedback').innerText = feedbackText;
+            document.getElementById('feedback').style.color = feedbackColor;
+
+            trialIdx++;
+            setTimeout(runTrial, 800);
+        }
+
+        function transitionToFormal() {
+            isPractice = false;
+            trialIdx = 0;
+            totalGold = 0;
+            
+            const mask = document.getElementById('mask-screen');
+            const ui = document.getElementById('ui-content');
+            ui.innerHTML = `
+                <h1 style="color: #ffeb3b;">练习完成！</h1>
+                <p style="font-size: 18px; color: white;">你已经掌握了避开河豚的技巧。<br>接下来的正式挑战中，请尽可能保持专注！</p>
+                <button class="btn-main" onclick="startGame()">开始正式挑战</button>
+            `;
+            
+            document.getElementById('mode-label').innerText = "[ 正式模式 ]";
+            document.getElementById('mode-label').style.color = "#4caf50";
+            document.getElementById('trial-count').innerText = "0";
+            document.getElementById('gold-count').innerText = "0";
+            mask.style.display = 'flex';
+        }
+
+        function showResult() {
+            const nogoTrials = stats.nogoCorrect + stats.nogoError;
+            const errorRate = nogoTrials > 0 ? stats.nogoError / nogoTrials : 0;
+
+            let finalScore = 0;
+            if (errorRate > 0.40) finalScore = 3;
+            else if (errorRate > 0.20) finalScore = 2;
+            else if (errorRate > 0.05) finalScore = 1;
+            else finalScore = 0;
+
+            window.parent.postMessage({ 
+                type: "experiment_result", 
+                eid: "inhibition", 
+                score: finalScore,
+                coins: totalGold
+            }, "*");
+
+            document.getElementById('status-bar').style.display = 'none';
+            document.getElementById('ocean').style.display = 'none';
+            document.getElementById('finish-screen').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

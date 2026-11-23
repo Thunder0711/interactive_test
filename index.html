@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿柴的成长手账小屋</title>
+    <style>
+        /* ============ 1. 基础变量与手账色盘 ============ */
+        :root {
+            --ac-mint: #A8D5BA;
+            --ac-mint-deep: #7eb89c;
+            --ac-cream: #FCF9F2;
+            --ac-paper: #FAF5EA;
+            --ac-brown: #5B4636;
+            --ac-sand: #E6D5B8;
+            --sticky-yellow: #FFF6C8;
+            --sticky-yellow-deep: #FCE89B;
+            --tape-mint: rgba(168, 213, 186, 0.72);
+            --tape-peach: rgba(247, 198, 165, 0.72);
+            --text-dark: #3D332B;
+            --text-light: #8F8175;
+            --card-bg: #ffffff;
+            --border-color: #ebe0ce;
+            --journal-shadow: 0 18px 42px rgba(91, 70, 54, 0.14);
+            --danger: #ff4d4f;
+            --warn: #faad14;
+            --info: #1890ff;
+            --ok: #52c41a;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 18px;
+            background-color: #efe3cf;
+            background-image:
+                radial-gradient(rgba(91, 70, 54, 0.09) 1px, transparent 1px),
+                radial-gradient(circle at 12% 10%, rgba(255, 250, 240, 0.85) 0%, rgba(255, 250, 240, 0) 38%),
+                linear-gradient(135deg, #f2e7d5 0%, #e7d7be 55%, #dfcbb0 100%);
+            background-size: 18px 18px, 100% 100%, 100% 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-dark);
+        }
+
+        button { font-family: inherit; }
+        .muted { color: #a59686; font-size: 12px; }
+        .small { font-size: 11px; margin-top: 6px; }
+
+        /* ============ 2. 整体手账双页布局 ============ */
+        .app-shell {
+            width: 100%;
+            max-width: none;
+            height: 100%;
+            max-height: none;
+            display: flex;
+            gap: 18px;
+            align-items: stretch;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        /* ============ 3. 左侧手账侧页：进度 + 斜插明信片便利贴 + 商店 ============ */
+        .dim-panel {
+            position: relative;
+            width: 356px;
+            flex: 0 0 356px;
+            min-width: 0;
+            background: var(--ac-cream);
+            background-image: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 27px,
+                rgba(186, 166, 140, 0.14) 28px
+            );
+            border: 2.5px solid #d5c2a5;
+            border-radius: 26px;
+            box-shadow: var(--journal-shadow), inset 0 0 0 5px rgba(255, 255, 255, 0.65);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 顶部和纸胶带装饰 */
+        .dim-panel::before {
+            content: "";
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-1.5deg);
+            width: 84px;
+            height: 16px;
+            background: var(--tape-peach);
+            border-left: 1px dashed rgba(255, 255, 255, 0.85);
+            border-right: 1px dashed rgba(255, 255, 255, 0.85);
+            border-radius: 2px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .panel-head {
+            padding: 22px 18px 6px;
+            position: relative;
+            z-index: 2;
+        }
+        .panel-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--ac-brown);
+            letter-spacing: 0.6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .panel-sub {
+            font-size: 11.5px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .progress-track {
+            height: 9px;
+            background: #efe6d6;
+            border: 1px solid #dfd0b8;
+            border-radius: 999px;
+            margin: 10px 18px 6px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--ac-mint), var(--ac-mint-deep));
+            border-radius: 999px;
+            transition: width 0.45s ease;
+        }
+
+        /* 便利贴与斜插明信片区域 */
+        .tip-area {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 10px 14px 12px;
+            display: flex;
+            scrollbar-width: thin;
+        }
+        .tip-area::-webkit-scrollbar { width: 6px; }
+        .tip-area::-webkit-scrollbar-thumb { background: #dcccb3; border-radius: 99px; }
+
+        .tip-card {
+            position: relative;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: opacity 0.18s ease, transform 0.22s ease;
+        }
+        .tip-card.tip-fading {
+            opacity: 0.15;
+            transform: translateY(4px);
+        }
+
+        /* 斜插进的明信片 */
+        .postcard-wrap {
+            position: relative;
+            padding: 4px 14px 0 18px;
+            z-index: 3;
+            margin-bottom: -16px; /* 向下穿插进便利贴顶部的插槽中 */
+        }
+
+        .postcard {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            background: #fffdf8;
+            padding: 6px 6px 14px;
+            border-radius: 5px;
+            border: 1px solid #e4d7c1;
+            box-shadow:
+                0 8px 18px rgba(91, 70, 54, 0.18),
+                0 2px 4px rgba(91, 70, 54, 0.08);
+            transform: rotate(-3.2deg);
+            transform-origin: center bottom;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            overflow: hidden;
+        }
+
+        .tip-card:hover .postcard {
+            transform: rotate(-1.4deg) translateY(-2px);
+            box-shadow: 0 12px 22px rgba(91, 70, 54, 0.22);
+        }
+
+        .postcard img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 3px;
+            display: block;
+        }
+
+        /* 明信片左上角邮票/小标 */
+        .tip-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(255, 253, 248, 0.92);
+            border: 1px dashed #9fc5b0;
+            color: #46735d;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+        }
+
+        /* 明信片右下角手账小角标 */
+        .postcard-mark {
+            position: absolute;
+            right: 11px;
+            bottom: 3px;
+            font-size: 9px;
+            letter-spacing: 1px;
+            color: #b4a28b;
+            font-weight: 700;
+        }
+
+        /* 便利贴主体 */
+        .sticky-note {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            min-width: 0;
+            padding: 24px 14px 13px;
+            background: linear-gradient(180deg, var(--sticky-yellow) 0%, var(--sticky-yellow-deep) 100%);
+            border-radius: 4px 4px 18px 4px;
+            border: 1px solid #ebd589;
+            box-shadow:
+                0 10px 20px rgba(136, 108, 46, 0.15),
+                inset 0 10px 12px -9px rgba(91, 70, 54, 0.28);
+            transform: rotate(0.8deg);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-height: 0;
+        }
+
+        /* 便利贴顶部胶带感 */
+        .sticky-note::before {
+            content: "";
+            position: absolute;
+            top: -7px;
+            left: 24px;
+            width: 56px;
+            height: 14px;
+            background: var(--tape-mint);
+            border-left: 1px dashed rgba(255, 255, 255, 0.85);
+            border-right: 1px dashed rgba(255, 255, 255, 0.85);
+            transform: rotate(-2.5deg);
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        /* 便利贴右下角微翘纸角 */
+        .sticky-note::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, transparent 50%, rgba(166, 134, 58, 0.22) 50%);
+            border-bottom-right-radius: 18px;
+            pointer-events: none;
+        }
+
+        .tip-kicker {
+            font-size: 10px;
+            color: #8c7748;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+        .tip-title {
+            font-size: 14.5px;
+            font-weight: 800;
+            line-height: 1.35;
+            color: var(--ac-brown);
+            word-break: break-word;
+        }
+        .tip-text {
+            margin: 0;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            font-size: 11.5px;
+            line-height: 1.72;
+            color: #5c4e38;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            overflow-x: hidden;
+        }
+        .tip-footer-row {
+            margin-top: auto;
+            padding-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .tip-foot {
+            font-size: 10px;
+            color: #968153;
+            letter-spacing: 0.3px;
+        }
+        .tip-next {
+            padding: 3px 8px;
+            border-radius: 8px;
+            border: 1px dashed #c7a95b;
+            background: rgba(255, 255, 255, 0.55);
+            color: #5b4636;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+        .tip-next:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(1px);
+        }
+
+        /* 侧页底部：金币、小道具、生成报告 */
+        .panel-foot {
+            padding: 10px 14px 13px;
+            border-top: 1.5px dashed #dfd0b8;
+            background: rgba(250, 244, 232, 0.85);
+            position: relative;
+            z-index: 2;
+        }
+        .coin-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 13px; }
+        .coin-ico { font-size: 16px; }
+        #total-coins { font-weight: 800; color: #e08e12; font-size: 16px; }
+        .coin-label { color: #9c8b78; font-size: 10.5px; margin-left: 2px; }
+        .coin-bounce { animation: coin-bounce 0.5s ease; }
+        @keyframes coin-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+
+        .shop-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .shop-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px;
+            border-radius: 12px;
+            border: 1.5px dashed #d8c6aa;
+            background: #fffdf9;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 0;
+        }
+        .shop-item:hover:not(.disabled) { border-style: solid; transform: translateY(-1px); }
+        .shop-item.disabled { opacity: 0.45; cursor: not-allowed; }
+        .shop-item.owned { background: #f3fbf6; border-style: solid; border-color: #97cbb0; }
+        .shop-item img { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+        .shop-price { font-size: 10px; font-weight: 800; color: #e08e12; line-height: 1.2; }
+
+        .report-btn {
+            width: 100%;
+            padding: 11px 12px;
+            border: 2px solid #74ad92;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--ac-mint), var(--ac-mint-deep));
+            color: #fff;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 5px 14px rgba(126, 184, 156, 0.35);
+            transition: all 0.2s ease;
+        }
+        .report-btn:disabled {
+            background: #ebe4d8;
+            border-color: #d8cebe;
+            color: #a89b8b;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .panel-foot-note { text-align: center; font-size: 10.5px; color: #a59686; margin-top: 6px; }
+
+        /* ============ 4. 右侧手账主页：对话区 ============ */
+        .main-container {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            height: 100%;
+            background: var(--ac-cream);
+            background-image:
+                linear-gradient(to right, rgba(213, 194, 165, 0.35) 1px, transparent 1px),
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0px,
+                    transparent 31px,
+                    rgba(186, 166, 140, 0.12) 32px
+                );
+            background-size: 26px 100%, 100% 32px;
+            border: 2.5px solid #d5c2a5;
+            border-radius: 32px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--journal-shadow), inset 0 0 0 6px rgba(255, 255, 255, 0.65);
+            overflow: hidden;
+        }
+
+        /* 右上角装饰胶带 */
+        .main-container::after {
+            content: "";
+            position: absolute;
+            top: 10px;
+            right: 28px;
+            width: 74px;
+            height: 15px;
+            background: var(--tape-mint);
+            border-left: 1px dashed rgba(255, 255, 255, 0.85);
+            border-right: 1px dashed rgba(255, 255, 255, 0.85);
+            transform: rotate(3deg);
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .chat-head {
+            position: relative;
+            z-index: 3;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 24px 14px;
+            border-bottom: 1.5px dashed #dfd0b8;
+            background: rgba(255, 253, 248, 0.78);
+            backdrop-filter: blur(6px);
+        }
+        .avatar-wrap {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            flex: 0 0 64px;
+        }
+        .chat-avatar {
+            width: 64px;
+            height: 64px;
+            flex: 0 0 64px;
+            border-radius: 50%;
+            background: #f4fbf7;
+            border: 2px solid #96c7ae;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(91, 70, 54, 0.08);
+        }
+        .candy-avatar {
+            position: absolute;
+            right: -5px;
+            bottom: -3px;
+            width: 22px;
+            height: auto;
+            z-index: 5;
+            pointer-events: none;
+            filter: drop-shadow(0 3px 5px rgba(91, 70, 54, 0.16));
+            animation: candy-bob 6s ease-in-out infinite;
+            --r: 14deg;
+        }
+        #achai-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.1));
+        }
+        .shiba-idle { animation: shiba-float 3.5s infinite ease-in-out; }
+        @keyframes shiba-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .shiba-fading { opacity: 0.3; transform: scale(0.9); }
+
+        .chat-head-text { flex: 1; min-width: 0; }
+        .chat-name {
+            font-size: 16.5px;
+            font-weight: 800;
+            color: var(--ac-brown);
+            line-height: 1.3;
+        }
+        .chat-status {
+            margin-top: 3px;
+            font-size: 11.5px;
+            color: var(--text-light);
+        }
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #52c41a;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .current-dim-strip {
+            margin-left: auto;
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: #fff8e3;
+            border: 1.5px dashed #d8be7d;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--ac-brown);
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+        .current-dim-strip b { font-weight: 800; }
+
+        /* 聊天区糖果点缀 */
+        .chat-decor {
+            position: absolute;
+            top: 96px;
+            left: 0;
+            right: 0;
+            bottom: 150px;
+            z-index: 1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .candy {
+            position: absolute;
+            height: auto;
+            opacity: var(--o, 0.38);
+            filter: drop-shadow(0 5px 7px rgba(91, 70, 54, 0.12));
+            animation: candy-bob var(--t, 7s) ease-in-out infinite;
+            animation-delay: var(--d, 0s);
+            will-change: transform;
+        }
+        .candy-1 {
+            top: 6%;
+            right: 3%;
+            width: 58px;
+            --r: 12deg;
+            --o: 0.55;
+            --t: 8s;
+            --d: -1s;
+        }
+        .candy-2 {
+            top: 38%;
+            left: 1.5%;
+            width: 32px;
+            --r: -18deg;
+            --o: 0.42;
+            --t: 9s;
+            --d: -3s;
+        }
+        .candy-3 {
+            bottom: 10%;
+            left: 3%;
+            width: 36px;
+            --r: 8deg;
+            --o: 0.48;
+            --t: 7.5s;
+            --d: -2s;
+        }
+        .candy-5 {
+            bottom: 7%;
+            right: 2.5%;
+            width: 42px;
+            --r: -10deg;
+            --o: 0.4;
+            --t: 8.5s;
+            --d: -4s;
+        }
+        .candy-6 {
+            top: 22%;
+            right: 6%;
+            width: 26px;
+            --r: -14deg;
+            --o: 0.52;
+            --t: 6.5s;
+            --d: -1.5s;
+        }
+        @keyframes candy-bob {
+            0%, 100% { transform: translateY(0) rotate(var(--r)); }
+            50% { transform: translateY(-6px) rotate(calc(var(--r) + 4deg)); }
+        }
+
+        #chat-window {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 20px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            scroll-behavior: smooth;
+        }
+        #chat-window::-webkit-scrollbar { width: 6px; }
+        #chat-window::-webkit-scrollbar-thumb { background: #dcccb3; border-radius: 99px; }
+
+        .msg {
+            padding: 13px 18px;
+            border-radius: 18px;
+            max-width: min(78%, 760px);
+            line-height: 1.68;
+            font-size: 15px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            animation: msg-in 0.22s ease;
+        }
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .bot {
+            background: #e6f4ec;
+            border: 1.5px solid #b5dcc6;
+            align-self: flex-start;
+            color: #2c5542;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 4px 10px rgba(91, 70, 54, 0.05);
+        }
+        .user {
+            background: #fffdf9;
+            border: 1.5px solid #e3d4bc;
+            align-self: flex-end;
+            color: var(--ac-brown);
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 12px rgba(91, 70, 54, 0.07);
+        }
+        .sys-note {
+            align-self: center;
+            max-width: 92%;
+            font-size: 11.5px;
+            color: #6f7d74;
+            background: rgba(255, 250, 236, 0.92);
+            border: 1px dashed #d6c5a9;
+            padding: 6px 14px;
+            border-radius: 999px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .sys-note.error { color: #cf1322; background: #fff1f0; border-color: #ffa39e; }
+
+        .typing-bubble {
+            display: none;
+            background: #e6f4ec;
+            border: 1.5px solid #b5dcc6;
+            padding: 10px 16px;
+            border-radius: 18px;
+            margin: 0 28px 8px;
+            width: fit-content;
+            opacity: 0.9;
+            flex: 0 0 auto;
+        }
+        .dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #6da88c;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: bounce 1.4s infinite;
+        }
+        .dot:nth-child(2) { animation-delay: 0.15s; }
+        .dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .choice-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-self: flex-start;
+        }
+        .chat-choice-btn {
+            padding: 10px 18px;
+            border-radius: 14px;
+            border: 2px solid var(--ac-mint-deep);
+            background: #fffdf9;
+            color: #467861;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.18s ease;
+            box-shadow: 0 3px 8px rgba(91, 70, 54, 0.06);
+        }
+        .chat-choice-btn:hover { background: #f2fbf6; transform: translateY(-1px); }
+        .chat-choice-btn.ghost { border-style: dashed; border-color: #cfc0a8; color: #968775; }
+
+        .dim-action-bar {
+            position: relative;
+            z-index: 2;
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0 18px 8px;
+            padding: 9px 14px;
+            border-radius: 14px;
+            background: #fffdf8;
+            border: 1.5px dashed #dccab0;
+            box-shadow: 0 2px 8px rgba(91, 70, 54, 0.04);
+            flex: 0 0 auto;
+        }
+        .dim-action-text { font-size: 11.5px; color: #756757; flex: 1; min-width: 150px; line-height: 1.5; }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mini-btn {
+            padding: 7px 12px;
+            border-radius: 11px;
+            border: none;
+            background: var(--ac-mint-deep);
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .mini-btn:hover { filter: brightness(0.96); }
+        .mini-btn.ghost { background: #fcf9f2; color: #8c7c6a; border: 1px solid #d9c8ae; }
+        .mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .input-area {
+            position: relative;
+            z-index: 2;
+            padding: 15px 24px 19px;
+            display: flex;
+            gap: 12px;
+            background: rgba(255, 253, 248, 0.86);
+            backdrop-filter: blur(10px);
+            border-top: 1.5px dashed #dfd0b8;
+            border-radius: 0 0 29px 29px;
+            flex: 0 0 auto;
+        }
+        .candy-input {
+            position: absolute;
+            left: 3px;
+            bottom: 9px;
+            width: 26px;
+            height: auto;
+            opacity: 0.55;
+            transform: rotate(-8deg);
+            pointer-events: none;
+            z-index: 0;
+            filter: drop-shadow(0 3px 4px rgba(91, 70, 54, 0.1));
+        }
+        #user-input {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            min-width: 0;
+            padding: 13px 18px;
+            border: 2px solid #e2d3ba;
+            border-radius: 14px;
+            outline: none;
+            font-family: inherit;
+            font-size: 15px;
+            color: var(--text-dark);
+            background: #fffdf9;
+            transition: border-color 0.2s ease;
+        }
+        #user-input:focus { border-color: var(--ac-mint-deep); }
+        #user-input:disabled { background: #f4efe4; color: #a89b8b; }
+        .send-btn {
+            position: relative;
+            z-index: 1;
+            background: var(--ac-mint-deep);
+            color: #fff;
+            border: none;
+            padding: 13px 28px;
+            border-radius: 13px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(126, 184, 156, 0.3);
+        }
+        .send-btn:disabled { background: #e5ddd0; color: #a89b8b; box-shadow: none; cursor: not-allowed; }
+
+        /* ============ 5. 实验弹窗 ============ */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            background: rgba(65, 52, 40, 0.38);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-card {
+            position: relative;
+            width: 94%;
+            max-width: 900px;
+            height: 88vh;
+            background: var(--ac-cream);
+            border-radius: 28px;
+            border: 3px solid #d5c2a5;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+        }
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            z-index: 10;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid #dfd0b8;
+            background: #fffdf9;
+            color: var(--ac-brown);
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+        #exp-iframe { width: 100%; height: 100%; border: none; display: block; }
+
+        /* ============ 6. 报告 ============ */
+        #report-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 4000;
+            background: #f4ece0;
+            overflow-y: auto;
+            padding: 24px 16px 60px;
+        }
+        .report-content { width: 100%; max-width: 720px; margin: 0 auto; }
+
+        .report-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
+            padding: 0 6px;
+            gap: 12px;
+        }
+        .report-brand { font-size: 14px; font-weight: 800; color: var(--ac-brown); letter-spacing: 1px; }
+        .report-date { font-size: 11px; color: var(--text-light); margin-top: 3px; }
+        .report-close {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid #dfd0b8;
+            background: #fffdf9;
+            color: var(--ac-brown);
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            flex: 0 0 34px;
+        }
+
+        .score-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(150deg, #cdeadd 0%, #a8d5ba 55%, #88c0a7 100%);
+            border: 2px solid #7ab397;
+            border-radius: 26px;
+            padding: 28px 24px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #fff;
+            box-shadow: 0 14px 32px rgba(112, 168, 140, 0.32);
+        }
+        .score-card::after {
+            content: "";
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.16);
+            top: -70px;
+            right: -60px;
+        }
+        .score-big {
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1;
+            text-shadow: 0 4px 18px rgba(0, 80, 50, 0.18);
+            position: relative;
+            z-index: 1;
+        }
+        .score-unit { font-size: 12px; opacity: 0.94; margin-top: 4px; position: relative; z-index: 1; }
+        .score-label {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 5px 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            font-size: 14px;
+            font-weight: 800;
+            position: relative;
+            z-index: 1;
+        }
+        .score-sub { font-size: 11.5px; opacity: 0.92; margin: 10px 0 0; position: relative; z-index: 1; }
+
+        .info-card {
+            background: #fffdf9;
+            border: 1.5px solid #e3d5be;
+            border-radius: 20px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 12px rgba(91, 70, 54, 0.04);
+        }
+        .card-header {
+            font-weight: 800;
+            margin-bottom: 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            color: var(--ac-brown);
+        }
+        .card-header::before {
+            content: "";
+            width: 5px;
+            height: 14px;
+            background: var(--ac-mint-deep);
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        #res-summary { font-size: 12.5px; color: #5f5346; line-height: 1.75; white-space: pre-wrap; }
+
+        .safety-card { background: #fff2f0; border: 1.5px solid #ffccc7; }
+        .safety-card .card-header { color: #cf1322; }
+        .safety-card .card-header::before { background: var(--danger); }
+        .safety-text { font-size: 12px; color: #a8071a; line-height: 1.75; }
+        .safety-text b { font-weight: 800; }
+
+        .dim-legend { font-size: 10.5px; color: #9e8f7e; margin: -4px 0 10px 13px; line-height: 1.5; }
+
+        .dim-report { padding: 12px 0; border-bottom: 1px dashed #e5d8c3; }
+        .dim-report:last-child { border-bottom: none; padding-bottom: 0; }
+        .dim-report:first-child { padding-top: 0; }
+        .dim-report-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .dim-report-name { font-size: 13.5px; font-weight: 800; color: #473b30; }
+        .dim-report-name small { color: #b0a18f; font-weight: 500; margin-left: 4px; font-size: 10px; }
+        .level-tag {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .tag-excellent { color: #389e0d; background: #f6ffed; border-color: #b7eb8f; }
+        .tag-good { color: #096dd9; background: #e6f7ff; border-color: #91d5ff; }
+        .tag-watch { color: #d48806; background: #fffbe6; border-color: #ffe58f; }
+        .tag-alert { color: #cf1322; background: #fff1f0; border-color: #ffa39e; }
+        .tag-none { color: #999; background: #f5f5f5; border-color: #e8e8e8; }
+
+        .dim-report-score { font-size: 10.5px; color: #9e8f7e; margin: 5px 0 6px; }
+        .bar { height: 7px; background: #f0e8da; border-radius: 999px; overflow: hidden; }
+        .bar > i { display: block; height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+        .dim-report-desc { font-size: 12px; color: #6c5e50; line-height: 1.65; margin-top: 8px; }
+
+        .guide-block { margin-bottom: 14px; }
+        .guide-block:last-child { margin-bottom: 0; }
+        .guide-title { font-size: 12.5px; font-weight: 800; color: #4c3f33; margin-bottom: 7px; }
+        .guide-item { display: flex; gap: 8px; font-size: 12px; color: #635547; line-height: 1.6; margin-bottom: 6px; }
+        .guide-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--ac-mint-deep);
+            margin-top: 7px;
+            flex: 0 0 6px;
+        }
+
+        .report-actions { display: flex; gap: 10px; margin: 18px 0 30px; }
+        .report-actions button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 13.5px;
+            cursor: pointer;
+        }
+        .btn-primary { background: var(--ac-mint-deep); color: #fff; }
+        .btn-secondary { background: #fffdf9; color: #7a6b5b; border: 1.5px solid #dfd0b8 !important; }
+
+        /* ============ 7. 响应式 ============ */
+        @media (max-width: 900px) {
+            body {
+                padding: 12px;
+                align-items: flex-start;
+                overflow-y: auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            .app-shell {
+                flex-direction: column;
+                height: auto;
+                max-height: none;
+                gap: 12px;
+            }
+            .dim-panel { width: 100%; flex: none; border-radius: 22px; }
+            .dim-panel::before { display: none; }
+            .panel-head {
+                padding: 14px 16px 4px;
+                display: block;
+            }
+            .panel-sub { margin-top: 3px; }
+            .progress-track { margin: 6px 16px; }
+            .tip-area {
+                flex: none;
+                min-width: 0;
+                max-width: 100%;
+                padding: 6px 12px 12px;
+                overflow: visible;
+            }
+            .tip-card {
+                flex-direction: row;
+                align-items: center;
+                min-width: 0;
+                max-width: 100%;
+                gap: 8px;
+            }
+            .postcard-wrap {
+                width: 94px;
+                flex: 0 0 94px;
+                padding: 0;
+                margin-bottom: 0;
+                margin-right: -10px;
+                z-index: 3;
+            }
+            .postcard {
+                aspect-ratio: 4 / 3;
+                padding: 4px 4px 8px;
+                transform: rotate(-4deg);
+            }
+            .tip-card:hover .postcard { transform: rotate(-2deg); }
+            .tip-badge { top: 6px; left: 6px; font-size: 8.5px; padding: 1px 5px; }
+            .postcard-mark { display: none; }
+            .sticky-note {
+                padding: 9px 11px 9px 16px;
+                gap: 3px;
+                width: 0;
+                flex: 1 1 0;
+                min-width: 0;
+                transform: rotate(0.6deg);
+            }
+            .sticky-note::before {
+                top: -6px;
+                left: 50%;
+                transform: translateX(-50%) rotate(-1.5deg);
+                width: 44px;
+                height: 11px;
+            }
+            .tip-kicker { display: none; }
+            .tip-foot { display: none; }
+            .tip-title { font-size: 13px; }
+            .tip-text {
+                font-size: 11px;
+                line-height: 1.55;
+                max-height: 50px;
+                overflow-y: auto;
+            }
+            .tip-footer-row { padding-top: 3px; justify-content: flex-end; }
+            .tip-next { font-size: 10.5px; padding: 2px 7px; }
+            .panel-foot {
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 12px;
+                align-items: center;
+                padding: 10px 14px 12px;
+            }
+            .coin-row { margin: 0; flex: 0 0 auto; }
+            .shop-row { display: none; }
+            .report-btn { width: auto; flex: 1; min-width: 0; padding: 10px 14px; }
+            .panel-foot-note { display: none; }
+            .main-container {
+                height: calc(100vh - 270px);
+                min-height: 380px;
+                border-radius: 26px;
+            }
+            .main-container::after { display: none; }
+            .chat-head {
+                padding: 12px 16px 10px;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .avatar-wrap { width: 48px; height: 48px; flex: 0 0 48px; }
+            .chat-avatar { width: 48px; height: 48px; flex: 0 0 48px; padding: 3px; }
+            .candy-avatar { width: 18px; right: -4px; bottom: -2px; }
+            .chat-name { font-size: 14px; }
+            .chat-status { display: none; }
+            .current-dim-strip {
+                font-size: 10.5px;
+                padding: 6px 10px;
+                flex: 1 0 100%;
+                margin-left: 0;
+                margin-top: 2px;
+                text-align: center;
+            }
+            .chat-decor { top: 104px; bottom: 130px; }
+            .candy-1 { width: 36px; }
+            .candy-2 { width: 24px; }
+            .candy-3 { width: 26px; }
+            .candy-5 { width: 30px; }
+            .candy-6 { width: 18px; }
+            .candy-input { display: none; }
+            #chat-window { padding: 14px 16px; }
+            .input-area { padding: 12px 14px 16px; border-radius: 0 0 23px 23px; }
+            .dim-action-bar { margin: 0 12px 8px; }
+            .msg { max-width: 88%; }
+            .typing-bubble { margin-left: 16px; }
+        }
+
+        @media (max-width: 480px) {
+            .main-container { height: calc(100vh - 270px); min-height: 360px; }
+            .shop-row { display: none; }
+            .send-btn { padding: 12px 16px; }
+            .score-big { font-size: 56px; }
+        }
+
+        /* ============ 8. 打印 ============ */
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+                height: auto;
+                overflow: visible;
+                display: block;
+            }
+            .app-shell, #modal-overlay, .typing-bubble { display: none !important; }
+            #report-overlay {
+                display: block !important;
+                position: static;
+                background: #fff;
+                padding: 0;
+                overflow: visible;
+            }
+            .report-close, .report-actions { display: none !important; }
+            .score-card { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .info-card { break-inside: avoid; box-shadow: none; border: 1px solid #eee; }
+            .dim-report { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ===== 左侧手账侧页：探索进度 + 斜插明信片便利贴 ===== -->
+        <aside class="dim-panel">
+            <div class="panel-head">
+                <div class="panel-title">📓 阿柴的成长手账</div>
+                <div class="panel-sub" id="dim-progress">已完成 0 / 10 个环节 · 自动进行</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+            <div class="tip-area">
+                <div class="tip-card" id="tip-card">
+                    <div class="postcard-wrap">
+                        <div class="postcard">
+                            <img id="tip-image" src="assets/tips/interest.jpg" alt="成长小贴士明信片">
+                            <span class="tip-badge">小贴士</span>
+                            <span class="postcard-mark">POSTCARD</span>
+                        </div>
+                    </div>
+                    <div class="sticky-note">
+                        <div class="tip-kicker">成长科普 · 便利贴</div>
+                        <div class="tip-title" id="tip-title">找到你的热爱</div>
+                        <p class="tip-text" id="tip-text">兴趣是成长的燃料。试着每周接触一件新鲜事：画画、编程、篮球、烘焙……不用样样精通，重要的是发现“做起来会忘记时间”的事。兴趣能带来成就感，也能帮你在低谷时有个情绪的“出口”。允许自己尝试，也允许自己放弃不合适的，找到真正热爱的事本身就是一种能力。</p>
+                        <div class="tip-footer-row">
+                            <span class="tip-foot">随机小贴士 · 每 18 秒换一条</span>
+                            <button class="tip-next" onclick="nextTip()">换一张 →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-foot">
+                <div class="coin-row">
+                    <span class="coin-ico">💰</span>
+                    <span id="total-coins">0</span>
+                    <span class="coin-label">金币</span>
+                </div>
+                <div class="shop-row">
+                    <div id="buy-hat" class="shop-item disabled" onclick="buyItem('hat', 200)">
+                        <img src="shiba_caomao.png" alt="草帽">
+                        <span class="shop-price">200金币</span>
+                    </div>
+                    <div id="buy-cat" class="shop-item disabled" onclick="buyItem('cat', 300)">
+                        <img src="cat.png" alt="猫咪">
+                        <span class="shop-price">300金币</span>
+                    </div>
+                </div>
+                <button id="report-btn" class="report-btn" disabled onclick="openReport()">生成报告</button>
+                <div class="panel-foot-note" id="report-hint">完成全部环节后生成报告</div>
+            </div>
+        </aside>
+
+        <!-- ===== 右侧手账主页：聊天区 ===== -->
+        <main class="main-container">
+            <div class="chat-head">
+                <div class="avatar-wrap">
+                    <div class="chat-avatar">
+                        <img id="achai-img" src="shiba.png" class="shiba-idle" alt="伙伴阿柴">
+                    </div>
+                    <img class="candy-avatar" src="candy_4.png" alt="" aria-hidden="true">
+                </div>
+                <div class="chat-head-text">
+                    <div class="chat-name">阿柴助手</div>
+                    <div class="chat-status"><span class="status-dot"></span>成长陪伴中</div>
+                </div>
+                <div class="current-dim-strip" id="current-dim-strip">
+                    📌 正在准备第 1 个环节…
+                </div>
+            </div>
+
+            <div class="chat-decor" aria-hidden="true">
+                <img class="candy candy-1" src="candy_1.png" alt="">
+                <img class="candy candy-2" src="candy_2.png" alt="">
+                <img class="candy candy-3" src="candy_3.png" alt="">
+                <img class="candy candy-5" src="candy_5.png" alt="">
+                <img class="candy candy-6" src="candy_6.png" alt="">
+            </div>
+
+            <div id="chat-window">
+                <div class="msg bot">你好汪！我是阿柴 🐾 接下来我会按顺序带你完成 10 个小环节，有些环节还会有一个赢得金币的小游戏。不需要手动选择，我们马上开始吧！</div>
+            </div>
+
+            <div id="typing-indicator" class="typing-bubble">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+
+            <div id="dim-action-bar" class="dim-action-bar"></div>
+
+            <div class="input-area">
+                <img class="candy-input" src="candy_3.png" alt="" aria-hidden="true">
+                <input type="text" id="user-input" placeholder="正在准备第一个环节…" disabled
+                       onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){event.preventDefault();handleUserInput();}">
+                <button id="send-btn" class="send-btn" onclick="handleUserInput()" disabled>发送</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 实验弹窗 ===== -->
+    <div id="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" onclick="closeExperiment()" aria-label="关闭小游戏">×</button>
+            <iframe id="exp-iframe" src="about:blank" title="小游戏"></iframe>
+        </div>
+    </div>
+
+    <!-- ===== 报告 ===== -->
+    <div id="report-overlay">
+        <div class="report-content">
+            <div class="report-top">
+                <div>
+                    <div class="report-brand">🐾 阿柴的成长报告</div>
+                    <div class="report-date" id="report-date"></div>
+                </div>
+                <button class="report-close" onclick="closeReport()" aria-label="关闭报告">×</button>
+            </div>
+
+            <div class="score-card">
+                <div class="score-big" id="res-total-score">--</div>
+                <div class="score-unit">心理状态指数 / 100（越高越平稳）</div>
+                <div class="score-label" id="res-score-label">状态加载中</div>
+                <p class="score-sub" id="res-completion"></p>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header">总体解读</div>
+                <div id="res-summary">完成全部环节后，这里会生成属于你的解读。</div>
+            </div>
+
+            <div class="info-card safety-card" id="safety-card" style="display:none;">
+                <div class="card-header">重要提醒</div>
+                <div class="safety-text" id="safety-text"></div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header">10 个方面明细</div>
+                <div class="dim-legend">关注指数范围 0–3，数值越高代表该方面越需要关注</div>
+                <div id="res-dims"></div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-header">成长指南</div>
+                <div id="res-guide"></div>
+            </div>
+
+            <div class="report-actions">
+                <button class="btn-primary" onclick="window.print()">保存 / 打印</button>
+                <button class="btn-secondary" onclick="location.reload()">完成并返回</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==================================================================
+         * 一、配置
+         * ================================================================== */
+        const CONFIG = {
+            baseUrl: 'https://api.dify.ai/v1',
+            apiKey: 'app-MML8qnL3tgYZFKDTkOpTh8tY',
+            userId: 'student_001',
+            minUserTurnsBeforeScore: 1,
+            scorePolicy: 'dialogue-first'
+        };
+
+        // 收集完 10 个维度后，报告总体解读改走这个独立的总结 Agent
+        const SUMMARY_CONFIG = {
+            baseUrl: 'https://api.dify.ai/v1',
+            apiKey: 'app-fLMpaIfY0zQ7O0qJedEAWQ4p',
+            userId: 'summary_student_001'
+        };
+
+        /* ==================================================================
+         * 二、10 个测量维度
+         * ================================================================== */
+        const DIMENSIONS = [
+            {
+                id: 'd1', name: '兴趣', icon: '🎣', eid: 'fish',
+                topic: '兴趣维持',
+                expBrief: '这是一个探测动力和兴趣的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd2', name: '情绪', icon: '🎚️', eid: 'depression',
+                topic: '情绪状态',
+                expBrief: '这是一个用情绪滑块具象化低落感的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd3', name: '睡眠', icon: '⏰', eid: 'sleep',
+                topic: '睡眠节律',
+                expBrief: '这是一个用时钟拨盘记录睡眠节律的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd4', name: '焦虑', icon: '🔋', eid: 'anxiety',
+                topic: '焦虑与压力',
+                expBrief: '这是一个用电池电量感知压力水平的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd5', name: '冲动', icon: '🐡', eid: 'inhibition',
+                topic: '冲动控制',
+                expBrief: '这是一个检测冲动抑制情况的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd6', name: '专注', icon: '🔍', eid: 'attention',
+                topic: '注意力',
+                expBrief: '这是一个感知注意力水平的实验',
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd7', name: '心理弹性', icon: '🛡️', eid: 'resilience',
+                topic: '心理弹性',
+                expBrief: '这是一个具象化心理调节能力的实验',
+                expHigherIsBetter: true
+            },
+            {
+                id: 'd8', name: '人际关系', icon: '🏝️', eid: 'relationship',
+                topic: '人际关系',
+                expBrief: '这是一个具象化人际关系状态的实验',
+                expHigherIsBetter: true
+            },
+            {
+                id: 'd9', name: '厌学', icon: '📚', eid: null,
+                topic: '学习倦怠和厌学情绪',
+                expBrief: null,
+                expHigherIsBetter: false
+            },
+            {
+                id: 'd10', name: '自杀', icon: '🕊️', eid: null,
+                topic: '自杀相关想法与心理危机',
+                expBrief: null,
+                expHigherIsBetter: false
+            }
+        ];
+
+        const DIM_BY_ID = {};
+        DIMENSIONS.forEach(d => { DIM_BY_ID[d.id] = d; });
+
+        const STATUS_LABEL = {
+            pending: '等待中',
+            chatting: '进行中',
+            intro: '准备中',
+            ready: '待挑战',
+            experiment: '挑战中',
+            done: '已完成'
+        };
+
+        /* ==================================================================
+         * 三、状态
+         * ================================================================== */
+        const state = {
+            currentDim: null,
+            dims: {},
+            coins: 0,
+            theme: 'default',
+            ownedThemes: ['default'],
+            conversationId: '',
+            activeExperiment: null,
+            busy: false,
+            advanceTimer: null,
+            lastFailedText: null,
+            lastUserBubble: null,
+            reportShown: false,
+            aiRequested: false,
+            aiSummary: null
+        };
+
+        const THEMES = {
+            default: { idle: 'shiba.png', focus: 'shiba_focus.png', thinking: 'shiba_thinking.png', happy: 'shiba_happy.png' },
+            hat: { idle: 'shiba_caomao.png', focus: 'shiba_focus_caomao.png', thinking: 'shiba_thinking_caomao.png', happy: 'shiba_happy_caomao.png' },
+            cat: { idle: 'cat.png', focus: 'cat_focus.png', thinking: 'cat_thinking.png', happy: 'cat_happy.png' }
+        };
+
+        /* ==================================================================
+         * 四、基础工具
+         * ================================================================== */
+        const $ = id => document.getElementById(id);
+        const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+        const getDimension = id => DIM_BY_ID[id] || null;
+        const activeDim = () => state.currentDim ? getDimension(state.currentDim) : null;
+        const activeDimState = () => state.currentDim ? state.dims[state.currentDim] : null;
+
+        function scrollChat() {
+            const chat = $('chat-window');
+            requestAnimationFrame(() => { chat.scrollTop = chat.scrollHeight; });
+        }
+
+        function setTyping(show) {
+            const el = $('typing-indicator');
+            if (el) el.style.display = show ? 'block' : 'none';
+        }
+
+        function setShiba(mode) {
+            const img = $('achai-img');
+            if (!img) return;
+            const theme = THEMES[state.theme] || THEMES.default;
+            const src = theme[mode] || theme.idle;
+            if (img.getAttribute('src') === src) return;
+            img.classList.add('shiba-fading');
+            setTimeout(() => {
+                img.src = src;
+                img.classList.remove('shiba-fading');
+            }, 180);
+        }
+
+        function appendMessage(role, text) {
+            const chat = $('chat-window');
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.textContent = role === 'bot'
+                ? plainify(text)
+                : String(text == null ? '' : text);
+            chat.appendChild(div);
+            scrollChat();
+            return div;
+        }
+
+        function appendSystem(text, type) {
+            const chat = $('chat-window');
+            const div = document.createElement('div');
+            div.className = 'sys-note' + (type === 'error' ? ' error' : '');
+            div.textContent = text;
+            chat.appendChild(div);
+            scrollChat();
+        }
+
+        function allDone() {
+            return DIMENSIONS.every(d => state.dims[d.id] && state.dims[d.id].status === 'done');
+        }
+
+        /* ==================================================================
+         * 五、Dify 通讯
+         * ================================================================== */
+        async function callDify(query) {
+            let res;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 60000);
+            try {
+                res = await fetch(`${CONFIG.baseUrl}/chat-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${CONFIG.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        inputs: {},
+                        query: query,
+                        response_mode: 'blocking',
+                        user: CONFIG.userId,
+                        conversation_id: state.conversationId
+                    }),
+                    signal: controller.signal
+                });
+            } catch (e) {
+                const err = new Error(e && e.name === 'AbortError'
+                    ? '请求超时（60 秒）'
+                    : '网络请求失败（可能是跨域、断网或地址不可达）');
+                err.status = 0;
+                err.detail = e && e.message ? e.message : '';
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
+
+            if (!res.ok) {
+                let detail = '';
+                try {
+                    const raw = await res.text();
+                    detail = raw;
+                    try {
+                        const body = JSON.parse(raw);
+                        detail = body.message || body.error || raw;
+                    } catch (e) { /* keep raw text */ }
+                } catch (e) { /* ignore */ }
+                console.error(`[Dify] HTTP ${res.status}`, detail);
+                const err = new Error(`HTTP ${res.status}`);
+                err.status = res.status;
+                err.detail = detail;
+                throw err;
+            }
+
+            const data = await res.json();
+            if (data && data.conversation_id) state.conversationId = data.conversation_id;
+            if (!data || !data.answer) {
+                const err = new Error((data && data.message) || 'Dify 未返回 answer 字段');
+                err.status = 200;
+                err.detail = data ? JSON.stringify(data) : '';
+                throw err;
+            }
+            return data.answer;
+        }
+
+        function friendlyDifyError(err) {
+            const status = Number(err && err.status) || 0;
+            const detail = String((err && err.detail) || (err && err.message) || '');
+            if (/JSONDecodeError|Expecting value|Run failed|json\.decoder|json\.loads/i.test(detail)) {
+                return `Dify 工作流执行失败（HTTP ${status || '错误'}）：模型本次返回的内容不是合法 JSON。请点「重试上一条」；如果反复出现，需要在 Dify 的代码节点里对 JSON 解析做容错。`;
+            }
+            if (status === 401) return 'Dify 鉴权失败（HTTP 401），请检查 API Key。';
+            if (status === 404) return 'Dify 接口不存在（HTTP 404），请检查 baseUrl / 应用类型。';
+            if (status === 429) return 'Dify 请求过于频繁（HTTP 429），请稍后再试。';
+            if (status >= 500) return `Dify 服务异常（HTTP ${status}），请稍后重试。`;
+            if (status === 0) return '网络请求失败：可能是跨域、断网或地址不可达。';
+            return `Dify 请求失败（HTTP ${status || '未知'}）。请稍后重试。`;
+        }
+
+        async function requestDify(query) {
+            setTyping(true);
+            setShiba('thinking');
+            try {
+                return await callDify(query);
+            } finally {
+                setTyping(false);
+                setShiba('idle');
+            }
+        }
+
+        // 独立总结 Agent：只负责 10 个维度收集完成后的总体解读
+        async function callSummaryAgent(query) {
+            let res;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 90000);
+            try {
+                res = await fetch(`${SUMMARY_CONFIG.baseUrl}/chat-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUMMARY_CONFIG.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        inputs: {},
+                        query: query,
+                        response_mode: 'blocking',
+                        user: SUMMARY_CONFIG.userId,
+                        conversation_id: ''
+                    }),
+                    signal: controller.signal
+                });
+            } catch (e) {
+                const err = new Error(e && e.name === 'AbortError'
+                    ? '总结 Agent 请求超时（90 秒）'
+                    : '总结 Agent 网络请求失败（可能是跨域、断网或地址不可达）');
+                err.status = 0;
+                err.detail = e && e.message ? e.message : '';
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
+
+            if (!res.ok) {
+                let detail = '';
+                try {
+                    const raw = await res.text();
+                    detail = raw;
+                    try {
+                        const body = JSON.parse(raw);
+                        detail = body.message || body.error || raw;
+                    } catch (e) { /* keep raw text */ }
+                } catch (e) { /* ignore */ }
+                console.error(`[SummaryAgent] HTTP ${res.status}`, detail);
+                const err = new Error(`HTTP ${res.status}`);
+                err.status = res.status;
+                err.detail = detail;
+                throw err;
+            }
+
+            const data = await res.json();
+            const outputs = data && data.data && data.data.outputs;
+            const answer = data && (
+                data.answer ||
+                (data.data && data.data.answer) ||
+                (outputs && (outputs.text || outputs.summary || outputs.output || outputs.result))
+            );
+            if (answer == null || String(answer).trim() === '') {
+                const err = new Error('总结 Agent 未返回可用内容');
+                err.status = 200;
+                err.detail = data ? JSON.stringify(data) : '';
+                throw err;
+            }
+            return String(answer);
+        }
+
+        function buildDimensionPrompt(dim) {
+            return `现在你需要生成用户最近两周${dim.topic}的情况的提问。`;
+        }
+
+        function buildExperimentPrompt(dim) {
+            return `现在需要你介绍实验：${dim.expBrief}，请你简要介绍一下这个实验。`;
+        }
+
+        function buildReportPrompt() {
+            const lines = DIMENSIONS.map(dim => {
+                const ds = state.dims[dim.id];
+                const sev = getSeverity(dim.id);
+                const chat = ds.chatScore == null ? '未采集' : ds.chatScore;
+                const exp = ds.expScore == null ? '未采集' : ds.expScore;
+                return `${dim.id} ${dim.name}：综合关注指数 ${sev == null ? '未采集' : sev.toFixed(1)}/3（对话 ${chat}，实验 ${exp}）`;
+            }).join('\n');
+
+            return `现在是最终报告环节。请根据下面这份 10 维度心理测评结果，用中文直接输出一段 180 字以内的总体解读，并给出 3 条具体可执行的建议。语气温和、专业、不制造恐慌，不要输出 JSON，不要逐条复述分数，也不要再向我提问。\n${lines}`;
+        }
+
+        /* ==================================================================
+         * 六、解析 Dify 返回的 num
+         * ================================================================== */
+        function normalizeNum(value) {
+            if (value === null) return { hasNum: true, num: null };
+            if (typeof value === 'string') {
+                const t = value.trim().toLowerCase();
+                if (t === 'null' || t === 'none' || t === 'nil') return { hasNum: true, num: null };
+                if (/^[0-4]$/.test(t)) return { hasNum: true, num: Number(t) };
+                return { hasNum: false, num: undefined };
+            }
+            if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) {
+                return { hasNum: true, num: value };
+            }
+            return { hasNum: false, num: undefined };
+        }
+
+        function extractNum(raw) {
+            const s = String(raw == null ? '' : raw);
+            const patterns = [
+                /<(?:num|state)>\s*(null|[0-4])\s*<\/(?:num|state)>/i,
+                /[\[【(（]\s*(?:num|state)\s*[:：=]?\s*(null|[0-4])\s*[\]】)）]/i,
+                /["'](?:num|state)["']\s*[:：=]\s*["']?(null|[0-4])(?![\d\-~～、/])/i,
+                /\b(?:num|state)\s*[:：=]\s*["']?(null|[0-4])(?![\d\-~～、,，/])[^\S\r\n]*(?:[。.!！?？;；,，]|[)\]】]|$)/im,
+                /\b(?:num|state)\s*(?:为|是|等于|返回|记为|记作)\s*["']?(null|[0-4])(?![\d\-~～、,，/])[^\S\r\n]*(?:[。.!！?？;；,，]|[)\]】]|$)/im,
+                /^\s*(?:num|state)\s+(null|[0-4])\s*$/im
+            ];
+            for (const re of patterns) {
+                const m = s.match(re);
+                if (m) {
+                    const v = m[1].toLowerCase() === 'null' ? null : Number(m[1]);
+                    return { hasNum: true, num: v };
+                }
+            }
+            return { hasNum: false, num: undefined };
+        }
+
+        function tryParseJson(text) {
+            let s = String(text || '').trim();
+            const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+            if (fence) {
+                s = fence[1].trim();
+            } else if (!(s.startsWith('{') && s.endsWith('}'))) {
+                const start = s.indexOf('{');
+                const end = s.lastIndexOf('}');
+                if (start >= 0 && end > start) {
+                    const candidate = s.slice(start, end + 1);
+                    if (/["'](?:num|state)["']\s*:/.test(candidate)) s = candidate;
+                }
+            }
+            if (!(s.startsWith('{') && s.endsWith('}'))) return null;
+            try {
+                const obj = JSON.parse(s);
+                return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function stripProtocol(text) {
+            let t = String(text == null ? '' : text);
+            t = t.replace(/<(?:num|state)>[\s\S]*?<\/(?:num|state)>/gi, '');
+            t = t.replace(/[\[【(（]\s*(?:num|state)\s*[:：=]?\s*(?:null|[0-4])\s*[\]】)）]/gi, '');
+            t = t.replace(/["']?(?:num|state)["']?\s*[:：=]\s*["']?(?:null|[0-4])["']?/gi, '');
+            t = t.replace(/^\s*(?:num|state)\s+(?:null|[0-4])\s*$/gim, '');
+            t = t.replace(/\[EID:[^\]]*\]/gi, '');
+            t = t.replace(/\[REPORT_DATA\][\s\S]*/gi, '');
+            return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        function parseDifyAnswer(raw) {
+            const answer = String(raw == null ? '' : raw).trim();
+            const eidMatch = answer.match(/\[EID:\s*([A-Za-z0-9_]+)\]/i);
+            const eid = eidMatch ? eidMatch[1] : null;
+            const json = tryParseJson(answer);
+            if (json) {
+                let num = { hasNum: false, num: undefined };
+                if (Object.prototype.hasOwnProperty.call(json, 'num')) {
+                    num = normalizeNum(json.num);
+                } else if (Object.prototype.hasOwnProperty.call(json, 'state')) {
+                    num = normalizeNum(json.state);
+                }
+                let text = json.reply != null ? json.reply
+                    : json.question != null ? json.question
+                    : json.text != null ? json.text
+                    : json.answer != null ? json.answer
+                    : json.content != null ? json.content
+                    : json.message != null ? json.message
+                    : '';
+                if (Array.isArray(text)) text = text.join('\n');
+                return {
+                    text: String(text || '').trim(),
+                    hasNum: num.hasNum,
+                    num: num.num,
+                    hasEid: !!(json.eid || eid),
+                    eid: json.eid || eid || null
+                };
+            }
+
+            const num = extractNum(answer);
+            return {
+                text: stripProtocol(answer),
+                hasNum: num.hasNum,
+                num: num.num,
+                hasEid: !!eid,
+                eid: eid
+            };
+        }
+
+        /* ==================================================================
+         * 七、分数与报告文案
+         * ================================================================== */
+        function plainify(text) {
+            return String(text || '')
+                .replace(/\*\*(.*?)\*\*/g, '$1')
+                .replace(/__(.*?)__/g, '$1')
+                .replace(/^#{1,6}\s+/gm, '')
+                .replace(/`([^`]*)`/g, '$1')
+                .trim();
+        }
+
+        function getSeverity(id) {
+            const dim = getDimension(id);
+            const ds = state.dims[id];
+            if (!dim || !ds) return null;
+
+            let chat = ds.chatScore == null ? null : clamp(Number(ds.chatScore), 0, 3);
+            if (chat != null && dim.numHigherIsBetter) chat = 3 - chat;
+
+            let exp = null;
+            if (ds.expScore != null) {
+                let e = clamp(Number(ds.expScore), 0, 3);
+                if (dim.expHigherIsBetter) e = 3 - e;
+                exp = e;
+            }
+
+            switch (CONFIG.scorePolicy) {
+                case 'experiment-first':
+                    return exp != null ? exp : chat;
+                case 'average':
+                    if (chat != null && exp != null) return (chat + exp) / 2;
+                    return exp != null ? exp : chat;
+                case 'dialogue-first':
+                default:
+                    return chat != null ? chat : exp;
+            }
+        }
+
+        const LEVEL_COLOR = {
+            excellent: '#52c41a',
+            good: '#1890ff',
+            watch: '#faad14',
+            alert: '#ff4d4f',
+            none: '#dddddd'
+        };
+
+        function levelInfo(sev) {
+            if (sev == null) return { key: 'none', text: '未采集', cls: 'tag-none', color: LEVEL_COLOR.none };
+            if (sev <= 0.5) return { key: 'excellent', text: '状态良好', cls: 'tag-excellent', color: LEVEL_COLOR.excellent };
+            if (sev <= 1.5) return { key: 'good', text: '基本稳定', cls: 'tag-good', color: LEVEL_COLOR.good };
+            if (sev <= 2.5) return { key: 'watch', text: '需要关注', cls: 'tag-watch', color: LEVEL_COLOR.watch };
+            return { key: 'alert', text: '重点关注', cls: 'tag-alert', color: LEVEL_COLOR.alert };
+        }
+
+        const REPORT_NOTES = {
+            d1: {
+                excellent: '你对生活仍保持着好奇心与探索欲，兴趣的火花燃烧得很稳定。',
+                good: '大多数时候你能从喜欢的事情中获得动力，偶尔的倦怠属于正常波动。',
+                watch: '最近两周，原本喜欢的事情似乎变得有点“没意思”，动力像电量不足。',
+                alert: '兴趣明显减退，很多事情都提不起劲，这可能是情绪在向你发出求助信号。'
+            },
+            d2: {
+                excellent: '最近两周的情绪底色偏明亮，你能较快地从低落中恢复过来。',
+                good: '情绪有起伏但总体可控，你已经具备一定的自我调节能力。',
+                watch: '低落感出现的频率变高，快乐变得有点“钝”，需要主动给自己补给。',
+                alert: '情绪长期处于低位，可能影响睡眠、食欲与行动力，建议尽快和信任的人或专业人员聊聊。'
+            },
+            d3: {
+                excellent: '入睡顺利、节律稳定，睡眠正在为你的大脑好好“充电”。',
+                good: '睡眠大体规律，偶尔熬夜或入睡慢，注意别让晚睡变成习惯。',
+                watch: '入睡时间变长或夜间容易醒，白天的精力开始被“睡眠债”拖累。',
+                alert: '睡眠效率明显下降，可能已经影响白天的状态，需要优先修复作息节律。'
+            },
+            d4: {
+                excellent: '压力水平较低，身体和心理都处在比较放松的“省电模式”。',
+                good: '面对压力时会有紧张感，但你通常能把它转化为行动力。',
+                watch: '担忧和紧绷感出现得更频繁，身体可能已经在“高耗电”运行。',
+                alert: '焦虑感持续偏高，可能伴随心慌、坐立不安，建议学习放松技巧并寻求支持。'
+            },
+            d5: {
+                excellent: '你能很好地踩住“刹车”，在做决定前给自己留出思考空间。',
+                good: '大多数时候能控制冲动，偶尔的莽撞并不影响整体。',
+                watch: '有时会“先做后想”，冲动之后容易后悔，需要练习按下暂停键。',
+                alert: '冲动控制比较困难，可能带来冲突或风险行为，建议尝试“延迟十分钟”策略。'
+            },
+            d6: {
+                excellent: '注意力像聚光灯一样稳定，你能长时间沉浸在学习任务中。',
+                good: '专注力基本够用，偶尔走神但能自己把注意力拉回来。',
+                watch: '分心变多、任务切换变频繁，注意力像“信号不稳的 Wi-Fi”。',
+                alert: '很难维持专注，学习效率明显下降，建议减少多任务与干扰源。'
+            },
+            d7: {
+                excellent: '你像拥有自动修复功能的护盾，遇到挫折后能快速回弹。',
+                good: '遇到困难会难受，但你通常能找到重新站起来的方法。',
+                watch: '挫折带来的恢复时间变长，心理护盾上出现了一些“裂纹”。',
+                alert: '目前的压力可能超过了你的调节资源，别独自硬扛，主动求助是勇敢的表现。'
+            },
+            d8: {
+                excellent: '你有稳定、可依靠的关系网络，能在需要时获得支持。',
+                good: '与同伴相处总体融洽，偶尔的摩擦不影响你的归属感。',
+                watch: '最近可能感到有些孤单或难以融入，关系连接需要一点主动维护。',
+                alert: '你似乎把自己关进了“孤岛”，缺乏支持会放大压力，试着向一个人伸出手。'
+            },
+            d9: {
+                excellent: '你对学习保持较好的投入感，能从完成任务中获得成就感。',
+                good: '学习动力有波动，但总体还能跟上节奏。',
+                watch: '对上学和作业的抵触感在增加，学习开始变成“耗电”而非“充电”。',
+                alert: '厌学情绪较明显，可能伴随逃避、拖延，建议和老师、家长一起寻找卡点。'
+            },
+            d10: {
+                excellent: '目前没有明显的自伤或轻生想法，你与生活保持着连接。',
+                good: '偶尔会有“撑不下去”的念头，但你能找到继续的理由，请继续照顾好自己。',
+                watch: '出现了值得重视的消极念头，请务必告诉信任的成年人，不要独自承受。',
+                alert: '这是需要立即获得支持的信号。请马上联系身边可信任的人，或拨打心理援助热线。'
+            }
+        };
+
+        const DIM_TIPS = {
+            d1: [
+                '把“必须做好”改成“先做 10 分钟”，降低启动门槛。',
+                '每天固定一个小确幸时段，给兴趣留出位置。',
+                '用“兴趣清单”记录让你忘记时间的三件事。'
+            ],
+            d2: [
+                '每天写下三件小确幸，训练大脑捕捉积极信号。',
+                '情绪低落时先做一件“微小可控”的事，比如洗把脸、走 5 分钟。',
+                '给情绪命名：“我现在感到失落”，命名本身就能降低强度。'
+            ],
+            d3: [
+                '固定起床时间比固定入睡时间更重要。',
+                '睡前一小时调暗灯光、远离手机屏幕。',
+                '下午之后避免咖啡因，午睡不超过 30 分钟。'
+            ],
+            d4: [
+                '试试 4-7-8 呼吸：吸气 4 秒、屏息 7 秒、呼气 8 秒。',
+                '把担心的事写下来，区分“能控制”和“不能控制”。',
+                '每天安排 20 分钟“担心时间”，其余时间先放下。'
+            ],
+            d5: [
+                '冲动来临时先数 10 秒，再决定要不要行动。',
+                '把“马上买、马上做”改成“放进愿望清单，24 小时后再看”。',
+                '规律运动能帮助释放多余的能量和冲动。'
+            ],
+            d6: [
+                '用番茄钟：专注 25 分钟，休息 5 分钟。',
+                '学习时把手机放到看不见的地方。',
+                '一次只做一件事，减少任务切换的损耗。'
+            ],
+            d7: [
+                '把挫折写成“我学到了什么”，训练成长型思维。',
+                '建立一个“支持名单”，难受时按名单找人聊。',
+                '每天做一件有掌控感的小事，积累自我效能感。'
+            ],
+            d8: [
+                '主动发起一次微小互动：一句问候、一个点赞。',
+                '练习“我信息”表达：我感到……，我希望……。',
+                '每周和一个朋友进行一次不被打扰的面对面聊天。'
+            ],
+            d9: [
+                '把作业拆成最小步骤，只关注下一步。',
+                '找一个“学习搭子”，用同伴力量对抗拖延。',
+                '和老师聊一次卡点，让困难被看见。'
+            ],
+            d10: [
+                '请把现在的感受告诉一位信任的成年人或朋友。',
+                '远离可能伤害自己的物品与场景，给自己一个安全距离。',
+                '如果念头强烈，请立即拨打心理援助热线（12356 / 400-161-9995）或前往医院。'
+            ]
+        };
+
+        /* ==================================================================
+         * 七点五、左侧随机成长小贴士（d1-d9 科普内容）
+         * ================================================================== */
+        const TIPS = [
+            {
+                img: 'assets/tips/interest.jpg',
+                title: '找到你的热爱',
+                text: `兴趣是成长的燃料。试着每周接触一件新鲜事：画画、编程、篮球、烘焙……不用样样精通，重要的是发现“做起来会忘记时间”的事。兴趣能带来成就感，也能帮你在低谷时有个情绪的“出口”。允许自己尝试，也允许自己放弃不合适的，找到真正热爱的事本身就是一种能力。`
+            },
+            {
+                img: 'assets/tips/depression.jpg',
+                title: '情绪没有好坏',
+                text: `开心、愤怒、难过、紧张——每一种情绪都有意义。情绪像天气预报，不是让你控制天气，而是提醒你带伞。试着给情绪命名：“我现在是焦虑还是委屈？”命名本身就是一种安抚。写日记、画画、运动，都是和情绪好好相处的方式。`
+            },
+            {
+                img: 'assets/tips/sleep.jpg',
+                title: '别和手机一起熬夜',
+                text: `青少年每天需要8～10小时睡眠。睡眠不足会让人情绪暴躁、注意力下降、记忆力变差。睡前1小时放下手机，屏幕蓝光会骗大脑“现在还是白天”。固定作息、规律运动、减少咖啡因，是比任何补品都有效的“大脑保养术”。`
+            },
+            {
+                img: 'assets/tips/anxiety.jpg',
+                title: '和压力做朋友',
+                text: `适度焦虑是身体的“备战信号”，能帮你更专注。但当心跳加速、坐立不安持续困扰你时，试试“4-7-8呼吸法”：吸气4秒、屏息7秒、呼气8秒，重复几次。把大任务拆成小步骤，一次只做一步。焦虑不怕被面对，只怕被逃避。`
+            },
+            {
+                img: 'assets/tips/inhibition.jpg',
+                title: '按下暂停键',
+                text: `冲动时，大脑像踩了油门的赛车却没了刹车。想发脾气或做决定前，先数10个数，或者离开现场5分钟。给自己一个“冷静缓冲区”，让理性脑重新上线。事后你会发现，大多数冲动的念头都不值得你付出代价。`
+            },
+            {
+                img: 'assets/tips/attention.jpg',
+                title: '一次只做一件事',
+                text: `注意力是有限资源，不是“意志力”问题。学习时把手机放到另一个房间，用“番茄钟”（专注25分钟+休息5分钟）分段推进。多任务切换会消耗额外脑力，反而更累。找到你一天中状态最好的时段，把最难的事放在那里。`
+            },
+            {
+                img: 'assets/tips/resilience.jpg',
+                title: '摔跤了，再站起来',
+                text: `心理弹性不是“不会受伤”，而是受伤后能恢复。培养它的三个秘诀：①接纳失败是成长的一部分；②找到可以倾诉的人；③每天记录一件“今天做得还不错的事”。韧性强的人不是没哭过，而是哭完还能继续往前走。`
+            },
+            {
+                img: 'assets/tips/relationship.jpg',
+                title: '好的关系让人充电',
+                text: `真正的朋友不是“永远不吵架”，而是吵完还能和好。学会说“我需要空间”和“我错了”，这两种表达同样重要。如果一段关系让你长期感到自卑、恐惧或疲惫，那不是你的错，你有权利保持距离。你值得被尊重地对待。`
+            },
+            {
+                img: 'assets/tips/school.jpg',
+                title: '累了不是懒',
+                text: `不想上学不等于不想努力。厌学往往是压力、挫败感或人际困扰的信号。先别急着自责，试着找出“具体是什么让你抗拒”——是某门课太难？还是怕让家人失望？把问题具体化，才能找到出路。和老师、信任的长辈聊聊，求助不是软弱，是聪明的选择。`
+            }
+        ];
+
+        let tipBag = [];
+        let lastTipIndex = -1;
+        let tipTimer = null;
+
+        function drawTip() {
+            if (!tipBag.length) {
+                tipBag = TIPS.map((_, i) => i);
+                for (let i = tipBag.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [tipBag[i], tipBag[j]] = [tipBag[j], tipBag[i]];
+                }
+                if (tipBag.length > 1 && tipBag[tipBag.length - 1] === lastTipIndex) {
+                    [tipBag[tipBag.length - 1], tipBag[0]] = [tipBag[0], tipBag[tipBag.length - 1]];
+                }
+            }
+            const idx = tipBag.pop();
+            lastTipIndex = idx;
+            return TIPS[idx];
+        }
+
+        function showTip(tip) {
+            const card = $('tip-card');
+            if (!card) return;
+            card.classList.add('tip-fading');
+            setTimeout(() => {
+                const image = $('tip-image');
+                const title = $('tip-title');
+                const text = $('tip-text');
+                if (image) {
+                    image.src = tip.img;
+                    image.alt = tip.title;
+                }
+                if (title) title.textContent = tip.title;
+                if (text) text.textContent = tip.text;
+                card.classList.remove('tip-fading');
+            }, 160);
+        }
+
+        function restartTipTimer() {
+            if (tipTimer) clearInterval(tipTimer);
+            tipTimer = setInterval(nextTip, 18000);
+            if (tipTimer && typeof tipTimer.unref === 'function') tipTimer.unref();
+        }
+
+        function nextTip() {
+            showTip(drawTip());
+            restartTipTimer();
+        }
+
+        function initTips() {
+            const card = $('tip-card');
+            if (!card) return;
+            showTip(drawTip());
+            restartTipTimer();
+
+            if (card.addEventListener) {
+                card.addEventListener('mouseenter', () => {
+                    if (tipTimer) {
+                        clearInterval(tipTimer);
+                        tipTimer = null;
+                    }
+                });
+                card.addEventListener('mouseleave', restartTipTimer);
+            }
+
+            if (typeof Image !== 'undefined') {
+                TIPS.forEach(tip => {
+                    const img = new Image();
+                    img.src = tip.img;
+                });
+            }
+        }
+
+        /* ==================================================================
+         * 八、界面渲染
+         * ================================================================== */
+        function renderPanel() {
+            const doneCount = DIMENSIONS.filter(d => state.dims[d.id].status === 'done').length;
+            $('dim-progress').textContent = `已完成 ${doneCount} / 10 个环节 · 自动进行`;
+            $('progress-fill').style.width = `${doneCount * 10}%`;
+            const reportBtn = $('report-btn');
+            reportBtn.disabled = doneCount < 10;
+            $('report-hint').textContent = doneCount < 10
+                ? `系统自动依次进行（${doneCount}/10）`
+                : '全部环节已完成，点击生成报告';
+        }
+
+        function updateCurrentStrip() {
+            const strip = $('current-dim-strip');
+            const dim = activeDim();
+            if (!dim) {
+                strip.innerHTML = '📌 正在准备第 1 个环节…';
+                return;
+            }
+            const ds = state.dims[dim.id];
+            const index = DIMENSIONS.findIndex(d => d.id === dim.id) + 1;
+            strip.innerHTML = `📌 第 <b>${index}</b> / 10 个环节 · ${STATUS_LABEL[ds.status]}`;
+        }
+
+        function renderActionBar() {
+            const bar = $('dim-action-bar');
+            const dim = activeDim();
+            if (!dim) {
+                bar.style.display = 'none';
+                bar.innerHTML = '';
+                return;
+            }
+            bar.style.display = 'flex';
+            const ds = state.dims[dim.id];
+            let text = '';
+            let buttons = '';
+
+            if (ds.status === 'chatting') {
+                text = '💬 正在聊天';
+                buttons = `<button class="mini-btn ghost" onclick="restartDimensionPrompt()">重新开始本环节</button>`;
+                if (dim.eid) {
+                    buttons += `<button class="mini-btn" onclick="manualFinishDimension()">结束聊天，开始小游戏</button>
+                                <button class="mini-btn ghost" onclick="manualCompleteDimension()">直接完成</button>`;
+                } else {
+                    buttons += `<button class="mini-btn" onclick="manualCompleteDimension()">完成本环节</button>`;
+                }
+            } else if (ds.status === 'intro') {
+                text = '🧪 正在准备小游戏…';
+            } else if (ds.status === 'ready') {
+                text = '🧪 小游戏已准备好，点击进入挑战';
+                buttons = `<button class="mini-btn" onclick="openExperiment('${dim.id}')">进入小游戏</button>
+                           <button class="mini-btn ghost" onclick="manualCompleteDimension()">跳过小游戏</button>`;
+            } else if (ds.status === 'experiment') {
+                text = '🧪 小游戏中…';
+                buttons = `<button class="mini-btn" onclick="openExperiment('${dim.id}')">重新打开小游戏</button>
+                           <button class="mini-btn ghost" onclick="skipRunningExperiment()">跳过小游戏</button>`;
+            } else if (ds.status === 'done') {
+                text = '✅ 本环节已完成';
+                if (allDone()) {
+                    buttons = `<button class="mini-btn" onclick="openReport()">查看报告</button>`;
+                } else {
+                    text += ' · 正在进入下一环节…';
+                }
+            }
+
+            bar.innerHTML = `<div class="dim-action-text">${text}</div><div class="action-btns">${buttons}</div>`;
+        }
+
+        function renderInputState() {
+            const dim = activeDim();
+            const ds = activeDimState();
+            const canChat = !!(dim && ds && ds.status === 'chatting' && !state.busy);
+            const input = $('user-input');
+            const sendBtn = $('send-btn');
+
+            input.disabled = !canChat;
+            sendBtn.disabled = !canChat;
+
+            if (!dim) {
+                input.placeholder = '正在准备第一个环节…';
+            } else if (ds.status === 'chatting') {
+                input.placeholder = state.busy ? '阿柴正在思考…' : '说说你的想法…';
+            } else if (ds.status === 'intro' || ds.status === 'ready' || ds.status === 'experiment') {
+                input.placeholder = '当前阶段无需文字输入';
+            } else {
+                input.placeholder = allDone()
+                    ? '全部环节已完成，可点击「查看报告」'
+                    : '本环节已完成，正在准备下一环节…';
+            }
+        }
+
+        function updateUI() {
+            renderPanel();
+            updateCurrentStrip();
+            renderActionBar();
+            renderInputState();
+        }
+
+        /* ==================================================================
+         * 九、自动推进的环节对话流程
+         * ================================================================== */
+        function startNextDimension() {
+            if (state.busy || state.activeExperiment) return;
+            if (allDone()) {
+                if (!state.reportShown) openReport();
+                return;
+            }
+
+            const current = activeDimState();
+            if (current && current.status !== 'done') return;
+
+            const next = findNextPending();
+            if (!next) return;
+
+            state.currentDim = next.id;
+            state.dims[next.id].status = 'chatting';
+            state.conversationId = '';
+            state.lastUserBubble = null;
+            $('user-input').value = '';
+            updateUI();
+
+            runDimensionPrompt(next);
+        }
+
+        async function runDimensionPrompt(dim) {
+            state.busy = true;
+            updateUI();
+            try {
+                const raw = await requestDify(buildDimensionPrompt(dim));
+                await handleDimensionAnswer(raw, dim);
+            } catch (err) {
+                appendSystem(`⚠️ ${friendlyDifyError(err)} 请点击「重新开始本环节」重试，或直接「结束聊天」进入小游戏。`, 'error');
+            } finally {
+                state.busy = false;
+                updateUI();
+            }
+        }
+
+        async function handleDimensionAnswer(raw, dim, opts = {}) {
+            const parsed = parseDifyAnswer(raw);
+            const eidMatches = !!dim.eid && (
+                parsed.eid === dim.eid ||
+                (dim.eid === 'attention' && parsed.eid === 'visual_search_slope')
+            );
+            const eidTrigger = !parsed.hasNum && parsed.hasEid && eidMatches;
+
+            let botBubble = null;
+            if (parsed.text) {
+                botBubble = appendMessage('bot', parsed.text);
+            } else if (!parsed.hasNum && !eidTrigger) {
+                botBubble = appendMessage('bot', '（阿柴收到了）');
+            }
+
+            if (!parsed.hasNum && !eidTrigger) return;
+
+            if (parsed.num === 4) {
+                const ds = state.dims[dim.id];
+                if (ds.status !== 'chatting') return;
+                ds.fourCount = (ds.fourCount || 0) + 1;
+                if (ds.fourCount < 2) {
+                    console.warn('[评估] 第 1 次收到 num=4，继续本环节对话');
+                    return;
+                }
+
+                if (opts.userBubble && opts.userBubble.remove) opts.userBubble.remove();
+                if (botBubble && botBubble.remove) botBubble.remove();
+                state.lastUserBubble = null;
+                scrollChat();
+                await beginExperiment(dim);
+                return;
+            }
+
+            if (parsed.num === null || eidTrigger) {
+                if (state.dims[dim.id].status === 'chatting') {
+                    await beginExperiment(dim);
+                }
+                return;
+            }
+
+            if (parsed.num >= 0 && parsed.num <= 3 && state.dims[dim.id].status === 'chatting') {
+                const turns = state.dims[dim.id].userTurns || 0;
+                if (turns < (CONFIG.minUserTurnsBeforeScore || 0)) {
+                    console.warn('[评估] 已忽略提前返回的 num：', parsed.num);
+                    return;
+                }
+                state.dims[dim.id].chatScore = Math.round(parsed.num);
+                completeDimension(dim);
+            }
+        }
+
+        async function beginExperiment(dim) {
+            if (!dim || state.dims[dim.id].status === 'done') return;
+
+            if (!dim.eid) {
+                completeDimension(dim);
+                return;
+            }
+
+            const ds = state.dims[dim.id];
+            ds.status = 'intro';
+            updateUI();
+
+            try {
+                const raw = await requestDify(buildExperimentPrompt(dim));
+                const parsed = parseDifyAnswer(raw);
+                appendMessage('bot', parsed.text || `${dim.expBrief}。`);
+            } catch (err) {
+                appendSystem(`⚠️ ${friendlyDifyError(err)}`, 'error');
+                appendMessage('bot', `${dim.expBrief}。下面直接开始挑战吧！`);
+            }
+
+            appendExperimentChoice(dim);
+            ds.status = 'ready';
+            updateUI();
+        }
+
+        function appendExperimentChoice(dim) {
+            const chat = $('chat-window');
+            const wrap = document.createElement('div');
+            wrap.className = 'choice-container';
+            wrap.innerHTML = `
+                <button class="chat-choice-btn" onclick="openExperiment('${dim.id}')">开始小游戏 🎮</button>
+                <button class="chat-choice-btn ghost" onclick="manualCompleteDimension('${dim.id}')">跳过小游戏</button>
+            `;
+            chat.appendChild(wrap);
+            scrollChat();
+        }
+
+        async function manualFinishDimension() {
+            const dim = activeDim();
+            const ds = activeDimState();
+            if (!dim || !ds) return;
+            if (ds.status === 'ready') {
+                openExperiment(dim.id);
+                return;
+            }
+            if (ds.status !== 'chatting' || state.busy) return;
+
+            state.busy = true;
+            updateUI();
+            try {
+                await beginExperiment(dim);
+            } finally {
+                state.busy = false;
+                updateUI();
+            }
+        }
+
+        function manualCompleteDimension(id) {
+            if (state.busy) return;
+            const targetId = id || state.currentDim;
+            const dim = getDimension(targetId);
+            if (!dim) return;
+            const ds = state.dims[dim.id];
+            if (ds.status === 'done') return;
+
+            if (ds.chatScore == null && ds.expScore == null) {
+                const ok = confirm('本环节还没有采集到任何分数，确定要标记为完成吗？');
+                if (!ok) return;
+            }
+            completeDimension(dim);
+        }
+
+        function restartDimensionPrompt() {
+            const dim = activeDim();
+            const ds = activeDimState();
+            if (!dim || !ds || ds.status !== 'chatting' || state.busy) return;
+            const ok = confirm('重新开始本环节的对话吗？\n当前已记录的分数会被清除，并开启一段新的对话。');
+            if (!ok) return;
+
+            ds.chatScore = null;
+            ds.userTurns = 0;
+            ds.fourCount = 0;
+            state.lastUserBubble = null;
+            state.conversationId = '';
+            appendSystem('🔄 重新开始本环节。');
+            runDimensionPrompt(dim);
+        }
+
+        /* ==================================================================
+         * 十、小游戏
+         * ================================================================== */
+        function openExperiment(id) {
+            const dim = getDimension(id);
+            if (!dim || !dim.eid) return;
+            if (state.activeExperiment && state.activeExperiment !== id) {
+                appendSystem('⚠️ 已有小游戏正在进行中。', 'error');
+                return;
+            }
+            state.activeExperiment = id;
+            state.dims[id].status = 'experiment';
+            updateUI();
+            $('exp-iframe').src = `experiments/${dim.eid}.html`;
+            $('modal-overlay').style.display = 'flex';
+        }
+
+        function hideExperimentModal() {
+            $('modal-overlay').style.display = 'none';
+            $('exp-iframe').src = 'about:blank';
+        }
+
+        function closeExperiment() {
+            const id = state.activeExperiment;
+            state.activeExperiment = null;
+            hideExperimentModal();
+            if (id && state.dims[id] && state.dims[id].status === 'experiment') {
+                state.dims[id].status = 'ready';
+            }
+            updateUI();
+            appendSystem('⏸️ 小游戏已暂停，可点击下方「进入小游戏」重新打开。');
+        }
+
+        function skipRunningExperiment() {
+            if (!confirm('小游戏尚未完成，确定要跳过吗？')) return;
+            const id = state.activeExperiment;
+            state.activeExperiment = null;
+            hideExperimentModal();
+            if (id && state.dims[id] && state.dims[id].status === 'experiment') {
+                state.dims[id].status = 'ready';
+            }
+            updateUI();
+            manualCompleteDimension(id);
+        }
+
+        function calcCoins(data) {
+            if (['fish', 'inhibition'].includes(data.eid)) {
+                return parseInt(data.coins, 10) || 0;
+            }
+            if (data.eid === 'attention' || data.eid === 'visual_search_slope') {
+                const score = Math.round(Number(data.score));
+                const mapping = { 0: 100, 1: 80, 2: 60, 3: 40 };
+                return mapping[score] != null ? mapping[score] : 40;
+            }
+            return 40;
+        }
+
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            if (!data || data.type !== 'experiment_result') return;
+            if (!state.activeExperiment) return;
+
+            const dimId = state.activeExperiment;
+            const dim = getDimension(dimId);
+            if (!dim) return;
+
+            state.activeExperiment = null;
+            hideExperimentModal();
+
+            const rawScore = parseFloat(data.score);
+            const expScore = Number.isFinite(rawScore) ? clamp(rawScore, 0, 3) : null;
+            state.dims[dimId].expScore = expScore;
+
+            const earned = calcCoins(data);
+            updateCoins(earned);
+
+            setShiba('happy');
+            appendMessage('bot', `小游戏完成！你获得了 ${earned} 枚金币 🪙`);
+            setTimeout(() => setShiba('idle'), 2500);
+
+            completeDimension(dim);
+        });
+
+        /* ==================================================================
+         * 十一、完成环节与报告触发
+         * ================================================================== */
+        function completeDimension(dim) {
+            const ds = state.dims[dim.id];
+            if (!ds || ds.status === 'done') return;
+
+            ds.status = 'done';
+            if (state.activeExperiment === dim.id) {
+                state.activeExperiment = null;
+                hideExperimentModal();
+            }
+
+            updateUI();
+
+            if (allDone()) {
+                if (!state.reportShown) {
+                    state.reportShown = true;
+                    setTimeout(() => {
+                        if (allDone() && $('report-overlay').style.display !== 'block') openReport();
+                    }, 1200);
+                }
+            } else {
+                const next = findNextPending();
+                if (next) {
+                    if (state.advanceTimer) clearTimeout(state.advanceTimer);
+                    state.advanceTimer = setTimeout(() => {
+                        state.advanceTimer = null;
+                        startNextDimension();
+                    }, 1800);
+                }
+            }
+        }
+
+        function findNextPending() {
+            const ids = DIMENSIONS.map(d => d.id);
+            const start = state.currentDim ? ids.indexOf(state.currentDim) + 1 : 0;
+            for (let i = 0; i < ids.length; i++) {
+                const id = ids[(start + i) % ids.length];
+                if (state.dims[id].status === 'pending') return getDimension(id);
+            }
+            return null;
+        }
+
+        /* ==================================================================
+         * 十二、报告
+         * ================================================================== */
+        function localSummary(rows) {
+            const valid = rows.filter(row => row.sev != null);
+            if (!valid.length) {
+                return '还没有采集到足够的数据。完成所有环节后，这里会生成你的总体解读。';
+            }
+
+            const sorted = [...valid].sort((a, b) => b.sev - a.sev);
+            const watch = sorted.filter(row => row.sev >= 2);
+            const best = sorted[sorted.length - 1];
+            let text = `本次共采集 ${valid.length} 个方面的数据。`;
+
+            if (best) text += `其中「${best.dim.name}」的状态相对最平稳；`;
+            if (watch.length) {
+                text += `「${watch.slice(0, 3).map(row => row.dim.name).join('、')}」的关注指数相对较高，建议优先照顾。`;
+            } else {
+                text += '各方面整体处于平稳区间，继续保持现在的节奏即可。';
+            }
+            text += ' 报告仅用于自我了解，不能替代专业诊断。';
+            return text;
+        }
+
+        function rowHtml(row) {
+            const dim = row.dim;
+            const ds = row.ds;
+            const level = levelInfo(row.sev);
+            const pct = row.sev == null ? 0 : (row.sev / 3) * 100;
+            const note = row.sev == null
+                ? '该方面尚未采集到得分。'
+                : (REPORT_NOTES[dim.id] ? REPORT_NOTES[dim.id][level.key] : '');
+            const source = [
+                ds.chatScore != null ? `对话 ${ds.chatScore}` : null,
+                ds.expScore != null ? `小游戏 ${ds.expScore.toFixed(1)}` : null
+            ].filter(Boolean).join(' · ') || '暂无分项数据';
+
+            return `<div class="dim-report">
+                <div class="dim-report-head">
+                    <span class="dim-report-name">${dim.icon} ${dim.name} <small>${dim.id}</small></span>
+                    <span class="level-tag ${level.cls}">${level.text}${row.sev == null ? '' : ` · ${row.sev.toFixed(1)}`}</span>
+                </div>
+                <div class="dim-report-score">关注指数 ${row.sev == null ? '--' : row.sev.toFixed(1)} / 3 · ${source}</div>
+                <div class="bar"><i style="width:${pct}%;background:${level.color}"></i></div>
+                <div class="dim-report-desc">${note}</div>
+            </div>`;
+        }
+
+        function guideHtml(rows) {
+            const valid = rows.filter(row => row.sev != null);
+            if (!valid.length) {
+                return '<div class="muted">完成所有环节后，这里会生成针对性的成长建议。</div>';
+            }
+            const targets = [...valid].sort((a, b) => b.sev - a.sev).slice(0, 3);
+
+            return targets.map((row, index) => {
+                const tips = DIM_TIPS[row.dim.id] || [];
+                const tipHtml = tips.slice(0, 2).map(tip =>
+                    `<div class="guide-item"><span class="guide-dot"></span><span>${tip}</span></div>`
+                ).join('');
+                return `<div class="guide-block">
+                    <div class="guide-title">${index + 1}. ${row.dim.icon} ${row.dim.name} · ${levelInfo(row.sev).text}</div>
+                    ${tipHtml}
+                </div>`;
+            }).join('');
+        }
+
+        function renderReport() {
+            const rows = DIMENSIONS.map(dim => ({
+                dim,
+                sev: getSeverity(dim.id),
+                ds: state.dims[dim.id]
+            }));
+            const valid = rows.filter(row => row.sev != null);
+            const doneCount = rows.filter(row => row.ds.status === 'done').length;
+            const health = valid.length
+                ? Math.round(valid.reduce((sum, row) => sum + (1 - row.sev / 3), 0) / valid.length * 100)
+                : null;
+
+            $('res-total-score').textContent = health == null ? '--' : health;
+            $('res-score-label').textContent = health == null ? '数据不足'
+                : health >= 75 ? '状态平稳'
+                : health >= 55 ? '总体尚可'
+                : health >= 35 ? '需要关注'
+                : '建议寻求支持';
+            $('res-completion').textContent = `已完成 ${doneCount} / 10 个环节 · 指数越高代表状态越平稳`;
+            $('report-date').textContent = new Date().toLocaleDateString('zh-CN', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            $('res-summary').textContent = state.aiSummary || localSummary(rows);
+            $('res-dims').innerHTML = rows.map(rowHtml).join('');
+            $('res-guide').innerHTML = guideHtml(rows);
+
+            const d10 = rows.find(row => row.dim.id === 'd10');
+            const showSafety = d10 && d10.sev != null && d10.sev >= 2;
+            $('safety-card').style.display = showSafety ? 'block' : 'none';
+            if (showSafety) {
+                $('safety-text').innerHTML = `如果你最近有<b>伤害自己</b>的念头，请立即告诉身边可信任的人，并联系专业帮助：<br>
+                    · 全国心理援助热线：<b>12356</b><br>
+                    · 希望 24 热线：<b>400-161-9995</b><br>
+                    · 青少年服务台：<b>12355</b><br>
+                    · 紧急情况请拨打 <b>120</b> 或前往最近的医院急诊。<br>
+                    你并不孤单，寻求帮助是勇敢而正确的选择。`;
+            }
+        }
+
+        function openReport() {
+            if (!allDone()) {
+                appendSystem('⚠️ 还有环节未完成，完成全部 10 个环节后才能生成报告。', 'error');
+                return;
+            }
+            renderReport();
+            $('report-overlay').style.display = 'block';
+            requestAiSummary();
+        }
+
+        function closeReport() {
+            $('report-overlay').style.display = 'none';
+        }
+
+        async function requestAiSummary() {
+            if (!allDone()) return;
+            if (state.aiRequested) return;
+            state.aiRequested = true;
+
+            const el = $('res-summary');
+            const local = localSummary(DIMENSIONS.map(dim => ({
+                dim,
+                sev: getSeverity(dim.id),
+                ds: state.dims[dim.id]
+            })));
+            el.innerHTML = '<span class="muted">阿柴正在根据 10 个维度的数据生成总体解读…</span>';
+
+            try {
+                const raw = await callSummaryAgent(buildReportPrompt());
+                const parsed = parseDifyAnswer(raw);
+                let text = parsed.text || '';
+
+                // 兼容总结 Agent 直接返回 {"summary": "..."} / {"report": "..."} 
+                if (!text) {
+                    const json = tryParseJson(String(raw || '').trim());
+                    if (json) {
+                        text = json.summary || json.report || json.text || json.answer || json.content || '';
+                    }
+                }
+                text = plainify(text || raw || '');
+                if (!text) throw new Error('empty');
+                state.aiSummary = text;
+                el.textContent = text;
+            } catch (err) {
+                console.error('[SummaryAgent]', (err && (err.detail || err.message)) || err);
+                state.aiSummary = null;
+                state.aiRequested = false;
+                el.textContent = local;
+                const note = document.createElement('div');
+                note.className = 'muted small';
+                note.textContent = '（总结 Agent 暂不可用，以上由本地规则生成）';
+                el.appendChild(note);
+            }
+        }
+
+        /* ==================================================================
+         * 十三、金币与皮肤
+         * ================================================================== */
+        function updateCoins(amount) {
+            state.coins += amount;
+            const coinEl = $('total-coins');
+            coinEl.textContent = state.coins;
+            const parent = coinEl.parentElement;
+            parent.classList.add('coin-bounce');
+            setTimeout(() => parent.classList.remove('coin-bounce'), 500);
+
+            ['hat', 'cat'].forEach(item => {
+                const el = $(`buy-${item}`);
+                if (!el) return;
+                const price = item === 'hat' ? 200 : 300;
+                const priceEl = el.querySelector('.shop-price');
+                if (state.ownedThemes.includes(item)) {
+                    el.classList.add('owned');
+                    el.classList.remove('disabled');
+                    if (priceEl) priceEl.textContent = '已解锁';
+                    el.onclick = () => {
+                        state.theme = item;
+                        setShiba('idle');
+                    };
+                } else {
+                    if (priceEl) priceEl.textContent = `${price}金币`;
+                    el.classList.toggle('disabled', state.coins < price);
+                }
+            });
+        }
+
+        function buyItem(item, price) {
+            if (state.ownedThemes.includes(item)) {
+                state.theme = item;
+                setShiba('idle');
+                return;
+            }
+            if (state.coins < price) {
+                appendSystem('💰 金币还不够，再完成几个小游戏吧！');
+                return;
+            }
+            state.coins -= price;
+            state.ownedThemes.push(item);
+            state.theme = item;
+            updateCoins(0);
+            appendMessage('bot', '汪！新衣服真好看，谢谢你！✨');
+            setShiba('happy');
+            setTimeout(() => setShiba('idle'), 2500);
+        }
+
+        /* ==================================================================
+         * 十四、用户输入
+         * ================================================================== */
+        function disableRetryCards(label) {
+            if (!document.querySelectorAll) return;
+            document.querySelectorAll('.retry-card button').forEach(btn => {
+                btn.disabled = true;
+                if (label) btn.textContent = label;
+            });
+        }
+
+        function appendRetryCard() {
+            if (!state.lastFailedText) return;
+            disableRetryCards('已失效');
+            const chat = $('chat-window');
+            const wrap = document.createElement('div');
+            wrap.className = 'choice-container retry-card';
+            const btn = document.createElement('button');
+            btn.className = 'chat-choice-btn';
+            btn.textContent = '重试上一条';
+            btn.onclick = () => {
+                btn.disabled = true;
+                btn.textContent = '重试中…';
+                retryLastMessage();
+            };
+            wrap.appendChild(btn);
+            chat.appendChild(wrap);
+            scrollChat();
+        }
+
+        function retryLastMessage() {
+            if (state.busy || !state.lastFailedText) return;
+            const text = state.lastFailedText;
+            appendSystem('🔄 正在重试上一条回答…');
+            sendUserText(text, { echo: false });
+        }
+
+        async function sendUserText(text, opts = {}) {
+            const dim = activeDim();
+            const ds = activeDimState();
+            if (!dim || !ds || ds.status !== 'chatting') {
+                appendSystem('当前阶段还不能输入，请稍候或先完成本环节。');
+                return;
+            }
+            if (state.busy) return;
+
+            if (opts.echo !== false) {
+                state.lastUserBubble = appendMessage('user', text);
+                ds.userTurns = (ds.userTurns || 0) + 1;
+            }
+            state.busy = true;
+            updateUI();
+            setShiba('thinking');
+
+            try {
+                const raw = await requestDify(text);
+                await handleDimensionAnswer(raw, dim, { userBubble: state.lastUserBubble });
+                state.lastFailedText = null;
+                disableRetryCards('已完成');
+            } catch (err) {
+                state.lastFailedText = text;
+                appendSystem(`⚠️ ${friendlyDifyError(err)}`, 'error');
+                appendRetryCard();
+            } finally {
+                state.busy = false;
+                updateUI();
+                setShiba('idle');
+            }
+        }
+
+        async function handleUserInput() {
+            if (state.busy) return;
+            const dim = activeDim();
+            const ds = activeDimState();
+            if (!dim || !ds || ds.status !== 'chatting') {
+                appendSystem('当前阶段还不能输入，请稍候或先完成本环节。');
+                return;
+            }
+
+            const input = $('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            await sendUserText(text);
+        }
+
+        /* ==================================================================
+         * 十五、初始化
+         * ================================================================== */
+        function init() {
+            DIMENSIONS.forEach(dim => {
+                state.dims[dim.id] = {
+                    status: 'pending',
+                    chatScore: null,
+                    expScore: null,
+                    userTurns: 0,
+                    fourCount: 0
+                };
+            });
+
+            updateCoins(0);
+            updateUI();
+            initTips();
+
+            setTimeout(() => {
+                if (!state.currentDim && !allDone()) startNextDimension();
+            }, 900);
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+                if ($('modal-overlay').style.display === 'flex') {
+                    closeExperiment();
+                } else if ($('report-overlay').style.display === 'block') {
+                    closeReport();
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --ac-mint: #A8D5BA; --ac-cream: #FDFaf5; --ac-brown: #5B4636;
+            --ac-sand: #E6D5B8; --accent-blue: #78A2CC; --light-blue: #D0E1F0;
+        }
+        body {
+            font-family: -apple-system, sans-serif; background-color: #fff;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 5px; margin: 0; color: var(--ac-brown); overflow-x: hidden;
+        }
+
+        .header { text-align: center; margin-bottom: 5px; }
+        .header h2 { margin: 0; font-size: 1.1rem; }
+        .header p { margin: 2px 0; font-size: 0.75rem; color: #999; }
+
+        /* 拨盘容器 */
+        #sleep-dial {
+            position: relative; width: 280px; height: 280px; margin: 5px auto;
+            touch-action: none; user-select: none;
+        }
+
+        /* 引导手势动画 */
+        #guide-hand {
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%);
+            z-index: 100; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .hand-icon { font-size: 30px; animation: swipe 2s infinite; }
+        .hand-text { font-size: 10px; color: var(--accent-blue); font-weight: bold; margin-top: 5px; }
+        
+        @keyframes swipe {
+            0% { transform: rotate(0deg) translateX(40px) rotate(0deg); opacity: 0; }
+            20% { opacity: 1; }
+            80% { transform: rotate(120deg) translateX(40px) rotate(-120deg); opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .clock-label {
+            position: absolute; font-size: 10px; color: #CCC;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+
+        .dial-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .dial-track { fill: none; stroke: #EBE6D9; stroke-width: 20; }
+        .range-bed { fill: none; stroke: var(--light-blue); stroke-width: 20; stroke-linecap: round; }
+        .range-sleep { fill: none; stroke: var(--accent-blue); stroke-width: 20; stroke-linecap: round; }
+
+        .handle-wrapper { position: absolute; width: 38px; height: 38px; z-index: 10; }
+        .handle {
+            width: 100%; height: 100%; background: white; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); cursor: grab; font-size: 18px;
+        }
+        
+        .time-bubble {
+            position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
+            background: #5D574F; color: white; padding: 2px 6px;
+            border-radius: 6px; font-size: 10px; font-weight: bold; white-space: nowrap;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .handle-wrapper:hover .time-bubble, .handle-wrapper.active .time-bubble { opacity: 1; }
+
+        /* 文字介绍区域 */
+        .info-card {
+            width: 90%; background: #F8F9FA; border-radius: 12px;
+            padding: 10px; margin: 5px 0; border-left: 4px solid var(--accent-blue);
+        }
+        .info-card p { margin: 4px 0; font-size: 0.75rem; line-height: 1.4; color: #666; }
+        .info-card b { color: var(--ac-brown); }
+
+        .frequency-section { width: 95%; margin-top: 5px; }
+        .freq-title { font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; color: #5D574F; }
+        .freq-buttons { display: flex; justify-content: space-between; gap: 5px; }
+        .freq-btn {
+            flex: 1; padding: 8px; border: 1px solid #EEE;
+            background: #FDFCF8; border-radius: 10px; cursor: pointer; font-size: 0.8rem; color: #5D574F;
+        }
+        .freq-btn.active { background: #FFB37E; color: white; border-color: #FFB37E; font-weight: bold; }
+
+        .stats-row {
+            margin-top: 10px; width: 95%; background: #FDFCF8;
+            border-radius: 15px; padding: 10px; display: grid;
+            grid-template-columns: repeat(2, 1fr); gap: 10px; border: 1px solid #F0EDE5;
+        }
+        .stat-item { display: flex; flex-direction: column; }
+        .stat-label { font-size: 0.7rem; color: #AAA; }
+        .stat-val { font-size: 0.95rem; font-weight: bold; color: var(--accent-blue); }
+
+        .submit-btn {
+            margin-top: 10px; background: #5D574F; color: white;
+            border: none; width: 95%; padding: 12px; border-radius: 12px; 
+            cursor: pointer; font-size: 0.95rem; font-weight: bold; margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>睡眠质量评估</h2>
+        <p>滑动图标反馈真实的睡眠节律</p>
+    </div>
+
+    <div id="sleep-dial">
+        <div id="guide-hand">
+            <div class="hand-icon">👆</div>
+            <div class="hand-text">拖动图标试试</div>
+        </div>
+
+        <div id="clock-labels"></div>
+        <svg class="dial-svg" viewBox="0 0 200 200">
+            <circle class="dial-track" cx="100" cy="100" r="85" />
+            <path id="path-bed" class="range-bed" d="" />
+            <path id="path-sleep" class="range-sleep" d="" />
+        </svg>
+
+        <div id="wrap-bed" class="handle-wrapper">
+            <div class="time-bubble" id="label-bed">上床 21:00</div>
+            <div class="handle">🛏️</div>
+        </div>
+        <div id="wrap-sleep" class="handle-wrapper">
+            <div class="time-bubble" id="label-sleep">入睡 23:00</div>
+            <div class="handle">🌙</div>
+        </div>
+        <div id="wrap-wake" class="handle-wrapper">
+            <div class="time-bubble" id="label-wake">起床 07:00</div>
+            <div class="handle">☀️</div>
+        </div>
+    </div>
+
+    <div class="info-card">
+        <p><b>上床时间：</b>指你放下手机、关灯准备睡觉的时间。</p>
+        <p><b>入睡时间：</b>指你真正睡着的时间。如果你经常躺很久才睡着，请拉大两个图标的间距。</p>
+    </div>
+
+    <div class="frequency-section">
+        <div class="freq-title">中途醒来的频率（次数）</div>
+        <div class="freq-buttons">
+            <button class="freq-btn active" onclick="setFreq(0, this)">0次</button>
+            <button class="freq-btn" onclick="setFreq(1, this)">1-2次</button>
+            <button class="freq-btn" onclick="setFreq(2, this)">3-4次</button>
+            <button class="freq-btn" onclick="setFreq(3, this)">5次+</button>
+        </div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-item"><span class="stat-label">躺床时长</span><span id="v-bed" class="stat-val">10.0h</span></div>
+        <div class="stat-item"><span class="stat-label">实际睡眠</span><span id="v-sleep" class="stat-val">8.0h</span></div>
+        <div class="stat-item"><span class="stat-label">入睡潜伏</span><span id="v-latency" class="stat-val">120min</span></div>
+        <div class="stat-item"><span class="stat-label">睡眠效率</span><span id="v-eff" class="stat-val">80%</span></div>
+    </div>
+
+    <button class="submit-btn" onclick="doSubmit()">提交评估结果</button>
+
+<script>
+    let state = { bed: 315, sleep: 345, wake: 105, freq: 0 };
+    const radius = 85;
+    let hasInteracted = false;
+
+    // 初始化刻度
+    const labelContainer = document.getElementById('clock-labels');
+    for (let i = 0; i < 24; i += 3) {
+        const angle = (i * 15 - 90) * (Math.PI / 180);
+        const x = 140 + 100 * Math.cos(angle); 
+        const y = 140 + 100 * Math.sin(angle);
+        const lbl = document.createElement('div');
+        lbl.className = 'clock-label';
+        lbl.style.left = x + 'px'; lbl.style.top = y + 'px';
+        lbl.innerText = i + ':00';
+        labelContainer.appendChild(lbl);
+    }
+
+    function formatTime(deg) {
+        let totalMin = Math.round((deg % 360) * 4);
+        let h = Math.floor(totalMin / 60) % 24;
+        let m = Math.floor((totalMin % 60) / 15) * 15;
+        return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+    }
+
+    function updateUI() {
+        const updatePos = (id, deg, bubbleId, name) => {
+            const rad = (deg - 90) * (Math.PI / 180);
+            const x = 140 + 78 * Math.cos(rad); 
+            const y = 140 + 78 * Math.sin(rad);
+            const el = document.getElementById(id);
+            el.style.left = `${x - 19}px`; el.style.top = `${y - 19}px`;
+            document.getElementById(bubbleId).innerText = `${name} ${formatTime(deg)}`;
+        };
+
+        updatePos('wrap-bed', state.bed, 'label-bed', '上床');
+        updatePos('wrap-sleep', state.sleep, 'label-sleep', '入睡');
+        updatePos('wrap-wake', state.wake, 'label-wake', '起床');
+
+        const draw = (s, e, id) => {
+            const sR = (s-90)*Math.PI/180, eR = (e-90)*Math.PI/180;
+            const x1 = 100+85*Math.cos(sR), y1 = 100+85*Math.sin(sR);
+            const x2 = 100+85*Math.cos(eR), y2 = 100+85*Math.sin(eR);
+            const large = (e - s + 360) % 360 > 180 ? 1 : 0;
+            document.getElementById(id).setAttribute('d', `M ${x1} ${y1} A 85 85 0 ${large} 1 ${x2} ${y2}`);
+        };
+        draw(state.bed, state.wake, 'path-bed');
+        draw(state.sleep, state.wake, 'path-sleep');
+
+        const bedMin = ((state.wake - state.bed + 360) % 360) * 4;
+        const sleepMin = ((state.wake - state.sleep + 360) % 360) * 4;
+        const latMin = ((state.sleep - state.bed + 360) % 360) * 4;
+        const eff = bedMin > 0 ? (sleepMin / bedMin) : 0;
+
+        document.getElementById('v-bed').innerText = (bedMin/60).toFixed(1) + 'h';
+        document.getElementById('v-sleep').innerText = (sleepMin/60).toFixed(1) + 'h';
+        document.getElementById('v-latency').innerText = latMin + 'min';
+        document.getElementById('v-eff').innerText = Math.round(eff*100) + '%';
+
+        let score = 0;
+        if (eff < 0.65 || state.freq >= 3) score = 3;
+        else if (eff < 0.75 || state.freq === 2 || latMin > 60) score = 2;
+        else if (eff < 0.85 || state.freq === 1 || latMin > 30) score = 1;
+        state.finalScore = score;
+    }
+
+    function setupDrag(id, key) {
+        const el = document.getElementById(id);
+        const move = (e) => {
+            if(!hasInteracted) {
+                document.getElementById('guide-hand').style.display = 'none';
+                hasInteracted = true;
+            }
+            el.classList.add('active');
+            const rect = document.getElementById('sleep-dial').getBoundingClientRect();
+            const cx = rect.left + 140, cy = rect.top + 140; 
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let deg = Math.atan2(clientY - cy, clientX - cx) * 180 / Math.PI + 90;
+            if (deg < 0) deg += 360;
+            state[key] = Math.round(deg / 3.75) * 3.75;
+            updateUI();
+        };
+        const stop = () => {
+            el.classList.remove('active');
+            document.onmousemove = null; document.ontouchmove = null;
+        };
+        el.onmousedown = () => { document.onmousemove = move; document.onmouseup = stop; };
+        el.ontouchstart = (e) => { e.preventDefault(); document.ontouchmove = move; document.ontouchend = stop; };
+    }
+
+    function setFreq(v, btn) {
+        state.freq = v;
+        document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateUI();
+    }
+
+    function doSubmit() {
+        window.parent.postMessage({ type: 'experiment_result', eid: 'sleep', score: state.finalScore }, '*');
+    }
+
+    setupDrag('wrap-bed', 'bed'); setupDrag('wrap-sleep', 'sleep'); setupDrag('wrap-wake', 'wake');
+    updateUI();
+</script>
+</body>
+</html>

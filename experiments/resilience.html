@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心灵护盾实验 - 完整展示版</title>
+    <style>
+        :root {
+            --ac-mint: #A8D5BA;
+            --ac-brown: #5B4636;
+            --apple-blur: blur(20px);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+            background: transparent;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px; /* 调宽容器以适应垂直布局 */
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: var(--apple-blur);
+            border-radius: 40px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 顶部进度与场景 */
+        .progress-dots { display: flex; justify-content: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #DDD; }
+        .dot.active { background: var(--ac-mint); }
+
+        .bubble {
+            background: white;
+            border: 4px solid var(--ac-mint);
+            border-radius: 20px;
+            padding: 15px 20px;
+            font-size: 16px;
+            color: var(--ac-brown);
+            line-height: 1.5;
+            box-shadow: 0 4px 0 var(--ac-mint);
+        }
+
+        /* 核心交互区：改为垂直排列以平铺卡片 */
+        .main-stage {
+            display: flex;
+            flex-direction: row; /* 保持大屏幕下的左右分布，但优化比例 */
+            gap: 25px;
+            align-items: flex-start;
+        }
+
+        /* 护盾盒子：固定位置 */
+        .shield-box {
+            flex: 0 0 240px;
+            height: 240px;
+            background: #F4EDE0;
+            border: 6px solid #8d775f;
+            border-radius: 50% 50% 40% 40%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: sticky;
+            top: 20px;
+        }
+
+        .shield-box.success { border-color: var(--ac-mint); background: #E8F5E9; box-shadow: 0 0 20px var(--ac-mint); }
+        .shield-icon { font-size: 60px; }
+        .crack {
+            position: absolute;
+            width: 80%; height: 80%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 L40 40 L60 60 L50 90 M30 30 L45 45 M70 50 L55 65" stroke="rgba(91,70,54,0.3)" fill="none" stroke-width="3"/></svg>');
+        }
+
+        /* 卡片选取区：移除 overflow，实现完整展示 */
+        .cards-area {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr; /* 单列平铺 */
+            gap: 10px;
+            padding: 5px;
+        }
+
+        .card {
+            background: white;
+            padding: 14px 18px;
+            border-radius: 15px;
+            border: 2px solid #EEE;
+            font-size: 14px;
+            color: var(--ac-brown);
+            cursor: grab;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            line-height: 1.4;
+        }
+
+        .card:hover { border-color: var(--ac-mint); transform: translateX(-5px); }
+        .card.dragging { opacity: 0.3; }
+        .card.used { display: none; }
+
+        #counter-text { font-size: 13px; color: #8d775f; margin-top: 10px; font-weight: bold; }
+
+        /* 移动端适配 */
+        @media (max-width: 600px) {
+            .main-stage { flex-direction: column; align-items: center; }
+            .shield-box { flex: 0 0 200px; height: 200px; width: 200px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="progress-dots">
+        <div class="dot" id="dot-1"></div>
+        <div class="dot" id="dot-2"></div>
+    </div>
+
+    <div class="bubble" id="scenario-text">正在加载场景...</div>
+
+    <div class="main-stage">
+        <div class="cards-area" id="card-dock"></div>
+
+        <div class="shield-box" id="shield">
+            <div class="crack" id="crack-img"></div>
+            <div class="shield-icon" id="shield-icon">🛡️</div>
+            <p id="counter-text">还需拖入 3 个想法</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const scenarios = [
+        {
+            text: "<b>场景1：</b> 数学卷子发下来了，你只得了65分。看着周围同学都在庆祝，你感到很沮丧...",
+            cards: [
+                { t: "这次错题正好让我知道哪没学好。", s: 1 },
+                { t: "放学后我去请教一下老师。", s: 1 },
+                { t: "这次卷子太难了，下次再努力。", s: 0.5 },
+                { t: "我可能真的不是学数学的料。", s: 0 },
+                { t: "太丢脸了，我不想看卷子。", s: 0 },
+                { t: "完蛋了，老师肯定觉得我退步很大。", s: 0 }
+            ]
+        },
+        {
+            text: "<b>场景2：</b> 下午分组做实验，大家都找好了伙伴，没人邀请你。你独自坐在座位上...",
+            cards: [
+                { t: "也许大家已经组好队了，我主动问问。", s: 1 },
+                { t: "我看看还有谁剩下，去邀请他。", s: 1 },
+                { t: "没关系，一个人做实验更清净。", s: 0.5 },
+                { t: "肯定是因为大家都不喜欢我。", s: 0 },
+                { t: "以后我再也不想参加小组活动了。", s: 0 },
+                { t: "没人理我，我真是个透明人。", s: 0 }
+            ]
+        }
+    ];
+
+    let currentIdx = 0;
+    let totalScore = 0;
+    let selectedInCurrent = 0;
+    const maxSelect = 3;
+
+    function initScenario() {
+        const scene = scenarios[currentIdx];
+        document.getElementById('scenario-text').innerHTML = scene.text;
+        
+        document.querySelectorAll('.dot').forEach((d, i) => {
+            d.classList.toggle('active', i === currentIdx);
+        });
+        
+        const dock = document.getElementById('card-dock');
+        dock.innerHTML = '';
+        // 随机洗牌展示
+        [...scene.cards].sort(() => Math.random() - 0.5).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.draggable = true;
+            div.innerText = item.t;
+            div.dataset.score = item.s;
+            div.addEventListener('dragstart', () => div.classList.add('dragging'));
+            div.addEventListener('dragend', () => div.classList.remove('dragging'));
+            dock.appendChild(div);
+        });
+
+        selectedInCurrent = 0;
+        document.getElementById('counter-text').innerText = `还需拖入 ${maxSelect} 个想法`;
+        document.getElementById('shield').classList.remove('success');
+        document.getElementById('crack-img').style.display = 'block';
+        document.getElementById('shield-icon').innerText = "🛡️";
+    }
+
+    const shield = document.getElementById('shield');
+    shield.addEventListener('dragover', e => e.preventDefault());
+    shield.addEventListener('drop', e => {
+        const dragging = document.querySelector('.dragging');
+        if (dragging && selectedInCurrent < maxSelect) {
+            totalScore += parseFloat(dragging.dataset.score);
+            selectedInCurrent++;
+            dragging.classList.add('used');
+            document.getElementById('counter-text').innerText = `还需拖入 ${maxSelect - selectedInCurrent} 个想法`;
+            
+            if (selectedInCurrent === maxSelect) {
+                document.getElementById('shield').classList.add('success');
+                document.getElementById('crack-img').style.display = 'none';
+                document.getElementById('shield-icon').innerText = "✨";
+                setTimeout(() => {
+                    if (currentIdx < scenarios.length - 1) {
+                        currentIdx++;
+                        initScenario();
+                    } else {
+                        finishExperiment();
+                    }
+                }, 1200);
+            }
+        }
+    });
+
+    function finishExperiment() {
+        const finalScore = (totalScore / scenarios.length).toFixed(1);
+        window.parent.postMessage({
+            type: 'experiment_result',
+            eid: 'resilience',
+            score: finalScore
+        }, '*');
+        document.getElementById('scenario-text').innerText = "心灵护盾修补完成！正在同步数据...";
+    }
+
+    window.onload = initScenario;
+</script>
+</body>
+</html>

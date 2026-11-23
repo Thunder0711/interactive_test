@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>深海金枪鱼挑战赛 - 视觉统一版</title>
+    <style>
+        body { background: #012d5e; font-family: '幼圆', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: white; overflow: hidden; user-select: none; }
+        #game-screen { width: 700px; height: 500px; background: #0277bd; border: 6px solid #fff; border-radius: 30px; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden; }
+        
+        /* 状态栏 */
+        #status-bar { height: 60px; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: space-around; color: #01579b; font-weight: bold; font-size: 18px; z-index: 10; }
+        #mode-label { font-weight: bold; }
+
+        /* 游戏区域 */
+        #ocean { flex: 1; position: relative; background: radial-gradient(circle, #0288d1 0%, #01579b 100%); display: flex; align-items: center; justify-content: center; }
+        #fish-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; z-index: 5; }
+        #fixation { font-size: 60px; color: white; font-weight: bold; display: none; }
+        #feedback { position: absolute; top: 20px; font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 20; }
+
+        /* 金枪鱼 SVG */
+        .tuna-svg { width: 220px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4)); }
+        
+        /* 遮罩层 (引导页与切换页) */
+        #mask-screen { position: absolute; inset: 0; background: rgba(1, 87, 155, 0.98); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .rule-card { background: white; color: #01579b; padding: 25px; border-radius: 20px; margin: 20px; max-width: 500px; }
+        .key-hint { display: inline-block; padding: 4px 12px; background: #e1f5fe; border: 2px solid #01579b; border-radius: 6px; font-weight: bold; }
+        .btn-main { padding: 14px 45px; background: #ffc107; color: #3e2723; border: none; border-radius: 50px; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 5px 0 #ffa000; margin-top: 10px; }
+        
+        /* 结果展示 */
+        #result-screen { position: absolute; inset: 0; background: white; color: #01579b; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 20px; text-align: center; }
+        #bias-val { font-size: 56px; color: #d32f2f; font-weight: bold; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+    <div id="game-screen">
+        <div id="mask-screen">
+            <div id="ui-content">
+                <h1 style="color: #ffeb3b;">🌊 深海钓鱼大比拼！</h1>
+                <div class="rule-card">
+                    <p style="font-size: 19px; margin: 10px 0;">探险家，请观察金枪鱼的<b>背鳍长度</b>：</p>
+                    <div style="margin: 20px 0; font-size: 20px;">
+                        <span class="key-hint">F 键</span> 钓 <b>短鳍</b> 金枪鱼 <br><br>
+                        <span class="key-hint">J 键</span> 钓 <b>长鳍</b> 金枪鱼
+                    </div>
+                    <hr>
+                    <p style="color: #666; font-size: 14px;">正式开始前，将进行 3 次练习环节</p>
+                </div>
+                <button class="btn-main" onclick="startGame()">开始练习</button>
+            </div>
+        </div>
+
+        <div id="status-bar">
+            <div id="mode-label" style="color: #ff5252;">[ 练习模式 ]</div>
+            <div id="trial-label">进度: <span id="trial-count">0</span> / 20</div>
+            <div>金币: 💰<span id="gold-count">0</span></div>
+        </div>
+
+        <div id="ocean">
+            <div id="feedback"></div>
+            <div id="fixation">+</div>
+            <div id="fish-container">
+                <svg class="tuna-svg" viewBox="0 0 240 140">
+                    <path fill="#0277bd" d="M180 70 L220 30 L220 110 Z" stroke="#fff" stroke-width="2"/>
+                    <path fill="#01579b" d="M15,75 Q15,25 100,25 T185,75 T100,125 T15,75" stroke="#fff" stroke-width="3"/>
+                    <ellipse fill="#4fc3f7" cx="100" cy="92" rx="60" ry="25" opacity="0.4"/>
+                    <circle fill="white" cx="55" cy="65" r="11"/>
+                    <circle fill="black" cx="57" cy="65" r="5" />
+                    <path id="fin-path" fill="#039be5" stroke="#fff" stroke-width="2" d="" />
+                </svg>
+            </div>
+        </div>
+
+        <div id="result-screen">
+            <h2>🏆 捕鱼结果报告</h2>
+            <p>基于您的决策行为，反应偏差为：</p>
+            <div id="bias-val">0.00</div>
+            <p id="bias-desc" style="max-width: 480px; color: #455a64; line-height: 1.6;"></p>
+            <button class="btn-main" onclick="location.reload()">重新测评</button>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_TRIALS = 20;
+        const PRACTICE_TRIALS = 3;    
+        const PRESENT_TIME = 100;    
+        const RESPONSE_WINDOW = 1750; 
+        
+        let trialIdx = 0;
+        let totalGold = 0;
+        let isWaitingInput = false;
+        let currentFishSize = '';
+        let responseTimer = null;
+        let isPractice = true;        
+
+        let stats = { Lc: 0, Li: 0, Sc: 0, Si: 0 };
+
+        const FIN_SHORT = "M80 30 Q110 8 140 30 L130 40 Q110 32 80 40 Z";
+        const FIN_LONG = "M80 30 Q110 -15 145 30 L130 40 Q110 32 80 40 Z";
+
+        function startGame() {
+            document.getElementById('mask-screen').style.display = 'none';
+            runTrial();
+        }
+
+        function runTrial() {
+            const currentTotal = isPractice ? PRACTICE_TRIALS : TOTAL_TRIALS;
+            
+            // 结束判定
+            if (trialIdx >= currentTotal) {
+                if (isPractice) return transitionToFormal();
+                else return showResult();
+            }
+
+            // 更新进度显示：从 1 开始
+            document.getElementById('trial-count').innerText = (trialIdx + 1);
+            document.getElementById('trial-label').innerHTML = `进度: <span id="trial-count">${trialIdx + 1}</span> / ${currentTotal}`;
+
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('fixation').style.display = 'block';
+            document.getElementById('fish-container').style.display = 'none';
+
+            setTimeout(() => {
+                document.getElementById('fixation').style.display = 'none';
+                flashFish();
+            }, 500);
+        }
+
+        function flashFish() {
+            currentFishSize = Math.random() > 0.5 ? 'long' : 'short';
+            document.getElementById('fin-path').setAttribute('d', currentFishSize === 'long' ? FIN_LONG : FIN_SHORT);
+            
+            const fish = document.getElementById('fish-container');
+            fish.style.display = 'block';
+
+            setTimeout(() => {
+                fish.style.display = 'none';
+            }, PRESENT_TIME);
+
+            isWaitingInput = true;
+
+            responseTimer = setTimeout(() => {
+                if (isWaitingInput) {
+                    isWaitingInput = false;
+                    document.getElementById('feedback').innerText = "哎呀，错过了！";
+                    document.getElementById('feedback').style.color = "#ccc";
+                    finishTrial(null);
+                }
+            }, RESPONSE_WINDOW);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isWaitingInput) return;
+            const key = e.key.toLowerCase();
+            if (key !== 'f' && key !== 'j') return;
+
+            clearTimeout(responseTimer);
+            isWaitingInput = false;
+
+            const choice = (key === 'j') ? 'long' : 'short';
+            finishTrial(choice);
+        });
+
+        function finishTrial(choice) {
+            if (choice) {
+                const correct = (choice === currentFishSize);
+                
+                if (!isPractice) {
+                    if (currentFishSize === 'long') {
+                        correct ? stats.Lc++ : stats.Li++;
+                    } else {
+                        correct ? stats.Sc++ : stats.Si++;
+                    }
+                }
+
+                if (correct) {
+                    let goldEarned = (currentFishSize === 'long' && Math.random() < 1) ? 30 : 10;
+                    totalGold += goldEarned;
+                    document.getElementById('gold-count').innerText = totalGold;
+                    document.getElementById('feedback').innerText = isPractice ? `练习正确！金币 +${goldEarned}` : `✨ 完美！金币 +${goldEarned} ✨`;
+                    document.getElementById('feedback').style.color = goldEarned === 30 ? "#ffeb3b" : "white";
+                } else {
+                    document.getElementById('feedback').innerText = "哎呀，看错了";
+                    document.getElementById('feedback').style.color = "#ff8a80";
+                }
+            }
+
+            trialIdx++;
+            setTimeout(runTrial, 1000);
+        }
+
+        // 切换到正式环节 (参考 attention.html 的过渡效果)
+        function transitionToFormal() {
+            isPractice = false;
+            trialIdx = 0;
+            totalGold = 0;
+            
+            const mask = document.getElementById('mask-screen');
+            const ui = document.getElementById('ui-content');
+            ui.innerHTML = `
+                <h1 style="color: #ffeb3b;">练习完成！</h1>
+                <p style="font-size: 18px; color: white;">你已经准备好成为深海钓鱼高手了。<br>接下来进入正式环节，金币将重新累计，加油！</p>
+                <button class="btn-main" onclick="startGame()">开始正式挑战</button>
+            `;
+            
+            // 更新状态栏 UI
+            const modeLabel = document.getElementById('mode-label');
+            modeLabel.innerText = "[ 正式模式 ]";
+            modeLabel.style.color = "#4caf50";
+            document.getElementById('trial-count').innerText = "1";
+            document.getElementById('gold-count').innerText = "0";
+            
+            mask.style.display = 'flex';
+        }
+
+        function showResult() {
+            const Lc = stats.Lc + 0.5; 
+            const Si = stats.Si + 0.5; 
+            const Li = stats.Li + 0.5; 
+            const Sc = stats.Sc + 0.5; 
+
+            const logB = 0.5 * Math.log10((Lc * Si) / (Li * Sc));
+
+            let phq9_score = 0;
+            if (logB > 0.10) phq9_score = 0;
+            else if (logB > 0.05) phq9_score = 1;
+            else if (logB >= -0.05) phq9_score = 2;
+            else phq9_score = 3;
+
+            window.parent.postMessage({
+                type: "experiment_result",
+                eid: "fish",
+                score: phq9_score,
+                raw_logB: logB.toFixed(3),
+                coins: totalGold
+            }, "*");
+
+            document.getElementById('result-screen').style.display = 'flex';
+            document.getElementById('bias-val').innerText = logB.toFixed(3);
+            document.getElementById('bias-desc').innerText = 
+                `钓鱼实验结束！您的动力偏好评估分值为：${phq9_score} 分。数据已同步。`;
+        }
+    </script>
+</body>
+</html>

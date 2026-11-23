@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --ac-mint: #A8D5BA; --ac-brown: #5B4636; --ac-blue: #5C7CFA; }
+        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; color: var(--ac-brown); background: #fff; }
+        h2 { font-size: 1.5rem; margin-bottom: 10px; }
+        .hint { color: #666; margin-bottom: 30px; text-align: center; font-size: 0.9rem; }
+        
+        /* 滑块容器 */
+        .slider-container { width: 90%; position: relative; margin: 40px 0; }
+        .labels { display: flex; justify-content: space-between; margin-bottom: 15px; color: #888; font-size: 0.9rem; }
+        
+        /* 渐变进度条：红色(低落) -> 黄色(中等) -> 绿色(积极) */
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 10px; border-radius: 5px; 
+            background: linear-gradient(to right, #F44336, #FFC107, #4CAF50); outline: none; }
+        
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; 
+            background: #fff; border: 3px solid var(--ac-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+        .value-display { font-size: 3.5rem; font-weight: bold; color: var(--ac-blue); margin: 15px 0; }
+        .feedback { display: flex; align-items: center; gap: 12px; font-size: 1.3rem; font-weight: bold; background: #f8f9fa; padding: 10px 25px; border-radius: 30px; }
+        .submit-btn { margin-top: 40px; width: 100%; max-width: 300px; padding: 16px; background: var(--ac-blue); 
+            color: white; border: none; border-radius: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
+        .submit-btn:active { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <h2>当前心理状态评估</h2>
+    <div class="hint">请拖动滑块选择您此刻的心情状态<br>0表示非常低落，10表示非常积极</div>
+
+    <div class="slider-container">
+        <div class="labels">
+            <span>0 (低落)</span>
+            <span>5 (平稳)</span>
+            <span>10 (积极)</span>
+        </div>
+        <input type="range" id="moodSlider" min="0" max="10" value="5">
+    </div>
+
+    <div class="value-display" id="valText">5</div>
+    <div class="feedback">
+        <span id="emoji">😐</span>
+        <span id="status">情绪平稳</span>
+    </div>
+
+    <button class="submit-btn" onclick="submit()">完成评估</button>
+
+    <script>
+        const slider = document.getElementById('moodSlider');
+        const valText = document.getElementById('valText');
+        const emoji = document.getElementById('emoji');
+        const status = document.getElementById('status');
+
+        // 配置表：现在 0 是最差，10 是最好
+        const config = {
+            0: { e: '😭', s: '极度低落' },
+            1: { e: '😫', s: '非常低落' },
+            2: { e: '😔', s: '比较低落' },
+            3: { e: '😟', s: '有些不开心' },
+            4: { e: '🙁', s: '略微低落' },
+            5: { e: '😐', s: '情绪平稳' },
+            6: { e: '🙂', s: '心情还行' },
+            7: { e: '😀', s: '心情不错' },
+            8: { e: '😊', s: '比较积极' },
+            9: { e: '🥰', s: '非常积极' },
+            10: { e: '🌟', s: '极度积极' }
+        };
+
+        slider.oninput = function() {
+            const val = this.value;
+            valText.innerText = val;
+            emoji.innerText = config[val].e;
+            status.innerText = config[val].s;
+        };
+
+        function submit() {
+            const val = parseInt(slider.value);
+            
+            /* 计分逻辑翻转 (PHQ-9 逻辑)：
+               积极分 9-10 -> 抑郁分 0 (健康)
+               积极分 6-8  -> 抑郁分 1 (轻度)
+               积极分 3-5  -> 抑郁分 2 (中度)
+               积极分 0-2  -> 抑郁分 3 (重度)
+            */
+            let phqScore = 0;
+            if (val <= 0) phqScore = 3;      // 积极分极低 = 抑郁分极高
+            else if (val <= 2) phqScore = 2;
+            else if (val <= 4) phqScore = 1;
+            else phqScore = 0;              // 积极分极高 = 抑郁分极低
+
+            // 回传数据给父页面（阿柴助手）
+            window.parent.postMessage({
+                type: 'experiment_result',
+                eid: 'depression',
+                score: phqScore,
+                raw_value: val
+            }, '*');
+        }
+    </script>
+</body>
+</html>
